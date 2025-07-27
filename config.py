@@ -8,6 +8,7 @@ load_dotenv()
 # API Keys
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+HUGGINGFACE_API_KEY = os.getenv("HUGGINGFACE_API_KEY")
 
 # Model configurations
 GROQ_MODEL = "llama3-70b-8192"  # Fast model for most interactions

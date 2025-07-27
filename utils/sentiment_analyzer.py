@@ -1,46 +1,55 @@
-"""Sentiment analysis for TalentScout Hiring Assistant using Hugging Face models."""
+"""Sentiment analysis for TalentScout Hiring Assistant using Hugging Face API."""
 import logging
+import requests
+import json
 from typing import Dict, List, Any, Tuple
 import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class SentimentAnalyzer:
-    """Analyzes candidate sentiment during interview using HuggingFace models."""
+    """Analyzes candidate sentiment during interview using HuggingFace API."""
     
     def __init__(self):
-        """Initialize sentiment analyzer with appropriate models."""
-        self.model = None
-        self.tokenizer = None
-        self._initialize_model()
+        """Initialize sentiment analyzer with HuggingFace API."""
+        self.api_token = os.getenv("HUGGINGFACE_API_KEY")
+        self.api_url = "https://api-inference.huggingface.co/models/j-hartmann/emotion-english-distilroberta-base"
+        self.headers = {"Authorization": f"Bearer {self.api_token}"} if self.api_token else {}
         self.emotion_history = []
     
-    def _initialize_model(self):
-        """Initialize the HuggingFace model for sentiment analysis."""
+        # Test API connection
+        self._test_api_connection()
+    
+    def _test_api_connection(self):
+        """Test the HuggingFace API connection."""
+        if not self.api_token:
+            logger.warning("HuggingFace API key not provided. Sentiment analysis will not be available.")
+            return
+            
         try:
-            from transformers import AutoModelForSequenceClassification, AutoTokenizer
+            # Simple test request
+            test_data = {"inputs": "Hello, I'm excited about this opportunity!"}
+            response = requests.post(self.api_url, headers=self.headers, json=test_data, timeout=10)
             
-            # Use j-hartmann's emotion-english-distilroberta-base model
-            # This model can detect 7 emotions: anger, disgust, fear, joy, neutral, sadness, surprise
-            model_name = "j-hartmann/emotion-english-distilroberta-base"
-            
-            logger.info(f"Loading sentiment analysis model: {model_name}")
-            self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-            self.model = AutoModelForSequenceClassification.from_pretrained(model_name)
-            logger.info("Sentiment analysis model loaded successfully")
-            
-        except ImportError as e:
-            logger.warning(f"Could not import transformers library: {e}")
+            if response.status_code == 200:
+                logger.info("HuggingFace API connection successful")
+            else:
+                logger.warning(f"HuggingFace API test failed with status code: {response.status_code}")
             logger.warning("Sentiment analysis will not be available")
+                
         except Exception as e:
-            logger.warning(f"Error loading sentiment analysis model: {e}")
+            logger.warning(f"Error testing HuggingFace API connection: {e}")
             logger.warning("Sentiment analysis will not be available")
     
     def analyze_sentiment(self, text: str) -> Dict[str, float]:
         """
-        Analyze the sentiment of the given text.
+        Analyze the sentiment of the given text using HuggingFace API.
         
         Args:
             text: The text to analyze
@@ -48,28 +57,49 @@ class SentimentAnalyzer:
         Returns:
             Dictionary of emotions and their scores
         """
-        if not self.model or not self.tokenizer:
-            logger.warning("Sentiment analysis model not available")
+        if not self.api_token:
+            logger.warning("HuggingFace API key not provided")
             return {"neutral": 1.0}
             
         try:
-            import torch
+            # Prepare request data
+            data = {"inputs": text}
             
-            # Tokenize and predict
-            inputs = self.tokenizer(text, return_tensors="pt", padding=True, truncation=True, max_length=512)
-            with torch.no_grad():
-                outputs = self.model(**inputs)
+            # Make API request
+            response = requests.post(self.api_url, headers=self.headers, json=data, timeout=15)
+            
+            if response.status_code == 200:
+                result = response.json()
                 
-            # Get predicted emotions
-            scores = torch.nn.functional.softmax(outputs.logits, dim=1)[0]
-            emotion_labels = self.model.config.id2label
-            emotions = {emotion_labels[i]: float(scores[i]) for i in range(len(emotion_labels))}
+                # Parse the response
+                if isinstance(result, list) and len(result) > 0:
+                    emotions = result[0]
+                    
+                    # Convert to dictionary format
+                    emotion_dict = {}
+                    for emotion_data in emotions:
+                        if isinstance(emotion_data, dict) and 'label' in emotion_data and 'score' in emotion_data:
+                            emotion_dict[emotion_data['label']] = emotion_data['score']
             
             # Store in history
-            self.emotion_history.append(emotions)
-            
-            return emotions
-            
+                    self.emotion_history.append(emotion_dict)
+                    
+                    return emotion_dict
+                else:
+                    logger.warning(f"Unexpected API response format: {result}")
+                    return {"neutral": 1.0}
+                    
+            else:
+                logger.error(f"API request failed with status code: {response.status_code}")
+                logger.error(f"Response: {response.text}")
+                return {"neutral": 1.0}
+                
+        except requests.exceptions.Timeout:
+            logger.error("API request timed out")
+            return {"neutral": 1.0}
+        except requests.exceptions.RequestException as e:
+            logger.error(f"API request error: {e}")
+            return {"neutral": 1.0}
         except Exception as e:
             logger.error(f"Error analyzing sentiment: {e}")
             return {"neutral": 1.0}
@@ -85,8 +115,10 @@ class SentimentAnalyzer:
             Tuple of (emotion name, confidence score)
         """
         emotions = self.analyze_sentiment(text)
-        dominant_emotion = max(emotions.items(), key=lambda x: x[1])
-        return dominant_emotion
+        if emotions:
+            dominant_emotion = max(emotions.items(), key=lambda x: x[1])
+            return dominant_emotion
+        return ("neutral", 1.0)
     
     def get_candidate_emotional_state(self) -> Dict[str, Any]:
         """
@@ -149,17 +181,17 @@ class SentimentAnalyzer:
         if emotion == "neutral":
             return ""
         elif emotion == "joy":
-            return "Candidate appears enthusiastic and positive."
+            return "Candidate appears enthusiastic and positive about the opportunity."
         elif emotion == "sadness":
-            return "Candidate seems hesitant or uncertain. Consider asking encouraging follow-up questions."
+            return "Candidate seems hesitant or uncertain. Consider asking encouraging follow-up questions to boost confidence."
         elif emotion == "anger":
-            return "Candidate may be frustrated. Consider a more supportive approach or clarify questions."
+            return "Candidate may be frustrated with the process. Consider a more supportive approach or clarify any confusing questions."
         elif emotion == "fear":
-            return "Candidate appears nervous. Consider a more reassuring tone."
+            return "Candidate appears nervous or anxious. Consider a more reassuring tone and provide clear expectations."
         elif emotion == "surprise":
-            return "Candidate seems surprised by questions. Consider providing more context."
+            return "Candidate seems surprised by the questions. Consider providing more context about the interview process."
         elif emotion == "disgust":
-            return "Candidate may be uncomfortable with the current topic. Consider shifting direction."
+            return "Candidate may be uncomfortable with the current topic. Consider shifting to a different area of discussion."
         else:
             return ""
             
@@ -192,7 +224,7 @@ class SentimentAnalyzer:
             significant_shifts = [shift for shift in emotional_state["emotional_shifts"] 
                                  if shift[0] != "neutral" and shift[1] != "neutral"]
             if significant_shifts:
-                feedback.append(f"Candidate's emotions shifted from {significant_shifts[0][0]} to {significant_shifts[-1][1]}.")
+                feedback.append(f"Candidate's emotional state shifted from {significant_shifts[0][0]} to {significant_shifts[-1][1]} during the interview.")
         
         # Add feedback based on overall emotion
         overall_feedback = self.get_feedback_based_on_emotion(
@@ -202,13 +234,29 @@ class SentimentAnalyzer:
         if overall_feedback:
             feedback.append(overall_feedback)
             
+        # Add confidence level information
+        if emotional_state["confidence"] > 0.8:
+            feedback.append("High confidence in emotional assessment.")
+        elif emotional_state["confidence"] < 0.6:
+            feedback.append("Low confidence in emotional assessment - consider manual review.")
+            
         return {
             "emotional_state": emotional_state["overall_state"],
             "confidence": emotional_state["confidence"],
             "feedback": " ".join(feedback),
-            "detailed_analysis": user_emotions
+            "detailed_analysis": user_emotions,
+            "emotion_distribution": emotional_state["emotion_distribution"]
         }
         
     def is_available(self) -> bool:
         """Check if sentiment analysis is available."""
-        return self.model is not None and self.tokenizer is not None 
+        return self.api_token is not None and len(self.headers) > 0
+    
+    def get_api_status(self) -> Dict[str, Any]:
+        """Get the status of the HuggingFace API connection."""
+        return {
+            "api_key_provided": self.api_token is not None,
+            "headers_configured": len(self.headers) > 0,
+            "api_url": self.api_url,
+            "available": self.is_available()
+        } 

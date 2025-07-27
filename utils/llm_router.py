@@ -24,15 +24,35 @@ class LLMRouter:
         
         # OpenRouter uses the OpenAI client with a different base URL
         if config.OPENROUTER_API_KEY:
-            self.openrouter_client = openai.OpenAI(
-                api_key=config.OPENROUTER_API_KEY,
-                base_url="https://openrouter.ai/api/v1"
-            )
+            try:
+                self.openrouter_client = openai.OpenAI(
+                    api_key=config.OPENROUTER_API_KEY,
+                    base_url="https://openrouter.ai/api/v1"
+                )
+                # Test the connection
+                self._test_openrouter_connection()
+            except Exception as e:
+                logger.warning(f"Failed to initialize OpenRouter client: {e}")
+                self.openrouter_client = None
         else:
             self.openrouter_client = None
             
         if not self.groq_client and not self.openrouter_client:
             logger.warning("No API keys provided. LLM functionality will be limited.")
+    
+    def _test_openrouter_connection(self):
+        """Test OpenRouter connection to check if it's working."""
+        try:
+            # Simple test call
+            response = self.openrouter_client.chat.completions.create(
+                model="openai/gpt-3.5-turbo",  # Use a simple model for testing
+                messages=[{"role": "user", "content": "Hello"}],
+                max_tokens=10
+            )
+            logger.info("OpenRouter connection test successful")
+        except Exception as e:
+            logger.warning(f"OpenRouter connection test failed: {e}")
+            self.openrouter_client = None
     
     def _call_groq(self, prompt: str, temperature: float = 0.7, max_tokens: int = 500) -> Optional[str]:
         """Call the Groq API and return the response."""
@@ -55,12 +75,17 @@ class LLMRouter:
     def _call_openrouter(self, prompt: str, temperature: float = 0.7, max_tokens: int = 500) -> Optional[str]:
         """Call the OpenRouter API and return the response."""
         if not self.openrouter_client:
-            logger.warning("OpenRouter API key not provided.")
+            logger.warning("OpenRouter API key not provided or connection failed.")
             return None
         
         try:
+            # Use a more reliable model for OpenRouter
+            model = "openai/gpt-3.5-turbo"  # Fallback to a stable model
+            if hasattr(config, 'OPENROUTER_MODEL') and config.OPENROUTER_MODEL:
+                model = config.OPENROUTER_MODEL
+            
             response = self.openrouter_client.chat.completions.create(
-                model=config.OPENROUTER_MODEL,
+                model=model,
                 messages=[{"role": "user", "content": prompt}],
                 temperature=temperature,
                 max_tokens=max_tokens
@@ -68,6 +93,10 @@ class LLMRouter:
             return response.choices[0].message.content
         except Exception as e:
             logger.error(f"Error calling OpenRouter API: {e}")
+            # If it's a data policy error, disable OpenRouter for this session
+            if "data policy" in str(e).lower() or "404" in str(e):
+                logger.warning("OpenRouter disabled due to data policy issues")
+                self.openrouter_client = None
             return None
     
     def get_response(self, prompt: str, use_case: str = "general", 
@@ -84,29 +113,38 @@ class LLMRouter:
         Returns:
             Model response as string, or error message if both APIs fail
         """
-        # For technical questions, prioritize Groq for speed
-        if use_case == "tech_questions":
-            start_time = time.time()
+        # Try Groq first (more reliable)
+        if self.groq_client:
             response = self._call_groq(prompt, temperature, max_tokens)
-            
-            # If Groq fails or times out after 5 seconds, use OpenRouter
-            if not response and (time.time() - start_time > 5 or not self.groq_client):
-                logger.info("Falling back to OpenRouter for technical questions")
-                response = self._call_openrouter(prompt, temperature, max_tokens)
-        else:
-            # For general conversation, try OpenRouter first for accuracy
+            if response:
+                return response
+        
+        # Fallback to OpenRouter if Groq fails
+        if self.openrouter_client:
+            logger.info("Falling back to OpenRouter")
             response = self._call_openrouter(prompt, temperature, max_tokens)
-            
-            # Fallback to Groq if OpenRouter fails
-            if not response:
-                logger.info("Falling back to Groq for general conversation")
-                response = self._call_groq(prompt, temperature, max_tokens)
+            if response:
+                return response
         
         # Final fallback message if both APIs fail
-        if not response:
-            return "I apologize, but I'm currently having trouble connecting to my knowledge base. Could you please try again in a moment?"
-            
-        return response
+        return self._get_fallback_response(use_case)
+    
+    def _get_fallback_response(self, use_case: str) -> str:
+        """Get a fallback response when all APIs fail."""
+        fallback_responses = {
+            "greeting": "Hello! I'm here to help you with your application. Could you please tell me your name?",
+            "name": "Thank you for sharing your name. Could you please provide your email address and phone number?",
+            "contact_info": "Great! Now could you tell me how many years of experience you have in the industry?",
+            "experience": "Thank you. What type of position are you looking for?",
+            "position": "Could you tell me your current location?",
+            "location": "What technologies and programming languages are you proficient in?",
+            "tech_stack": "Thank you for sharing your technical background. I'll now ask you some technical questions.",
+            "technical_questions": "Thank you for your answer. Here's the next question.",
+            "farewell": "Thank you for completing the interview. We'll review your responses and get back to you soon.",
+            "general": "I apologize, but I'm having trouble connecting to my knowledge base. Could you please try again in a moment?"
+        }
+        
+        return fallback_responses.get(use_case, fallback_responses["general"])
             
     def generate_technical_questions(self, tech_stack: List[str], experience_years: int) -> List[str]:
         """

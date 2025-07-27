@@ -2,11 +2,20 @@
 from typing import Dict, List, Any, Optional, Tuple
 import uuid
 import re
+import time
+import json
 
 from utils.prompt_manager import PromptManager
 from utils.data_handler import DataHandler
 from utils.llm_router import LLMRouter
-from utils.sentiment_analyzer import SentimentAnalyzer  # Add import for sentiment analyzer
+from utils.sentiment_analyzer import SentimentAnalyzer
+from utils.language_manager import LanguageManager
+from utils.personalization_manager import PersonalizationManager
+from utils.performance_manager import PerformanceManager
+from utils.tech_questions import TechQuestionGenerator
+
+# Import config here to avoid circular imports
+import config
 
 class ConversationManager:
     """Manages conversation flow for the TalentScout Hiring Assistant."""
@@ -49,7 +58,13 @@ class ConversationManager:
         self.prompt_manager = PromptManager()
         self.data_handler = DataHandler()
         self.llm_router = LLMRouter()
-        self.sentiment_analyzer = SentimentAnalyzer()  # Initialize sentiment analyzer
+        self.sentiment_analyzer = SentimentAnalyzer()
+        
+        # Initialize new managers
+        self.language_manager = LanguageManager()
+        self.personalization_manager = PersonalizationManager()
+        self.performance_manager = PerformanceManager()
+        self.tech_question_generator = TechQuestionGenerator()
         
         # Load existing session or create new one
         self.candidate_data = self.data_handler.load_candidate_data(self.session_id) or {}
@@ -61,6 +76,17 @@ class ConversationManager:
         self.sentiment_analysis_enabled = self.sentiment_analyzer.is_available()
         if not self.sentiment_analysis_enabled:
             print("Sentiment analysis is not available. Using fallback mode.")
+        
+        # Initialize user ID and language
+        self.user_id = self.personalization_manager.get_user_id(self.session_id, self.candidate_data)
+        self.current_language = self.candidate_data.get("language", "en")
+        
+        # Preload common responses for performance
+        self.performance_manager.preload_common_responses()
+        
+        # Load existing technical questions if available
+        if "technical_questions" in self.candidate_data:
+            self.technical_questions = self.candidate_data["technical_questions"]
     
     def _determine_current_stage(self) -> int:
         """Determine the current conversation stage based on collected data."""
@@ -99,10 +125,20 @@ class ConversationManager:
         Returns:
             Response message
         """
+        start_time = time.time()
+        
         # Check for exit keywords
         if any(keyword in user_message.lower() for keyword in self.EXIT_KEYWORDS):
             return self._handle_exit()
-            
+        
+        # Detect language if not already set
+        if self.current_language == "en" and len(self.history) < 3:
+            detected_language = self.language_manager.detect_language(user_message)
+            if detected_language != "en":
+                self.current_language = detected_language
+                self.candidate_data["language"] = detected_language
+                self.language_manager.update_language_preference(self.session_id, detected_language)
+        
         # Update conversation history
         self._update_history("user", user_message)
         
@@ -125,6 +161,16 @@ class ConversationManager:
         
         # Update conversation history with response
         self._update_history("assistant", response)
+        
+        # Record interaction for personalization
+        response_time = time.time() - start_time
+        self.personalization_manager.record_interaction(self.user_id, {
+            "message": user_message,
+            "response": response,
+            "response_time": response_time,
+            "stage": self.stage,
+            "language": self.current_language
+        })
         
         # Save updated candidate data
         self._save_session()
@@ -246,8 +292,25 @@ class ConversationManager:
     
     def _handle_greeting(self) -> str:
         """Handle the greeting stage."""
-        prompt = self.prompt_manager.get_prompt("greeting")
-        response = self.llm_router.get_response(prompt)
+        # Check for cached response first
+        cache_key = self.performance_manager.generate_cache_key("greeting", {
+            "language": self.current_language,
+            "user_id": self.user_id
+        })
+        
+        cached_response = self.performance_manager.get_cached_response(cache_key)
+        if cached_response:
+            return cached_response
+        
+        # Get personalized greeting
+        if self.current_language != "en":
+            response = self.language_manager.get_localized_greeting(self.current_language)
+        else:
+            response = self.personalization_manager.get_personalized_greeting(self.user_id, self.current_language)
+        
+        # Cache the response
+        self.performance_manager.cache_response(cache_key, response)
+        
         return response
     
     def _handle_name_collection(self, user_message: str) -> str:
@@ -385,8 +448,28 @@ class ConversationManager:
         known_info += f"Desired Position: {self.candidate_data.get('position', 'Not provided')}\n"
         known_info += f"Location: {self.candidate_data.get('location', 'Not provided')}"
         
-        # If no tech stack is extracted, try to extract using LLM
+        # First, try to extract tech stack from the message using regex patterns
         if "tech_stack" not in self.candidate_data:
+            tech_stack = []
+            all_technologies = []
+            
+            # Combine all technologies from the configuration
+            for category, techs in config.TECH_CATEGORIES.items():
+                all_technologies.extend(techs)
+            
+            # Look for matches in the message
+            for tech in all_technologies:
+                if re.search(r"\b" + re.escape(tech) + r"\b", user_message, re.IGNORECASE):
+                    tech_stack.append(tech)
+            
+            # If we found technologies, save them
+            if tech_stack:
+                self.candidate_data["tech_stack"] = tech_stack
+        
+        # If still no tech stack, try LLM extraction (but only once to prevent loops)
+        if "tech_stack" not in self.candidate_data and "tech_extraction_attempted" not in self.candidate_data:
+            self.candidate_data["tech_extraction_attempted"] = True
+            
             # Use LLM to extract tech stack
             prompt = f"""
             Based on the following message, identify the technologies, programming languages, frameworks, 
@@ -401,6 +484,7 @@ class ConversationManager:
             if techs:
                 self.candidate_data["tech_stack"] = techs
             
+        # If we have tech stack, move to technical questions
         if "tech_stack" in self.candidate_data and self.candidate_data["tech_stack"]:
             # Move to technical questions
             known_info += "\nTech Stack: " + ", ".join(self.candidate_data["tech_stack"])
@@ -418,10 +502,12 @@ class ConversationManager:
                 
                 return response
         
-        # Still need tech stack info or additional clarification
-        prompt = self.prompt_manager.get_prompt("tech_stack", known_info=known_info)
-        response = self.llm_router.get_response(prompt)
-        return response
+        # If we still don't have tech stack, ask for it directly
+        if "tech_stack" not in self.candidate_data:
+            return "Could you please tell me what technologies, programming languages, frameworks, and tools you're proficient in? For example: Python, JavaScript, React, PostgreSQL, AWS, etc."
+        
+        # Fallback response
+        return "Thank you for the information. Let me ask you some technical questions now."
     
     def _handle_technical_questions(self, user_message: str) -> str:
         """Handle the technical questions stage."""
@@ -490,20 +576,26 @@ class ConversationManager:
         tech_stack = self.candidate_data.get("tech_stack", [])
         years_experience = self.candidate_data.get("years_experience", 0)
         
-        if not tech_stack:
-            # No tech stack provided, generate general questions
-            self.technical_questions = [
-                "Can you describe your experience with programming languages?",
-                "What development methodologies are you familiar with?",
-                "How do you approach debugging complex issues?",
-                "Describe a challenging technical project you worked on.",
-                "How do you stay updated with industry trends and new technologies?"
-            ]
+        # Check for cached questions first
+        cache_key = self.performance_manager.generate_cache_key("technical_questions", {
+            "tech_stack": tech_stack,
+            "years_experience": years_experience,
+            "user_id": self.user_id
+        })
+        
+        cached_questions = self.performance_manager.get_cached_response(cache_key)
+        if cached_questions:
+            self.technical_questions = json.loads(cached_questions)
         else:
-            # Generate tech-specific questions
-            self.technical_questions = self.llm_router.generate_technical_questions(
-                tech_stack, years_experience
-            )
+            # Use the new TechQuestionGenerator to generate questions
+            self.technical_questions = self.tech_question_generator.generate_questions(
+                tech_stack=tech_stack,
+                years_experience=years_experience,
+                num_questions=None  # Use default from config
+                )
+            
+            # Cache the questions
+            self.performance_manager.cache_response(cache_key, json.dumps(self.technical_questions))
             
         # Store the questions in candidate data
         self.candidate_data["technical_questions"] = self.technical_questions
@@ -545,7 +637,113 @@ class ConversationManager:
         self.history = []
         self.stage = self.STAGES["greeting"]
         self.technical_questions = []
+        self.current_language = "en"
         self._save_session()
+        
+        # Clear performance cache for this user
+        self.performance_manager.clear_cache()
 
-# Import config here to avoid circular imports
-import config 
+    def get_conversation_analytics(self) -> Dict[str, Any]:
+        """Get analytics about the current conversation."""
+        analytics = {
+            "session_id": self.session_id,
+            "current_stage": self.stage,
+            "stage_name": [k for k, v in self.STAGES.items() if v == self.stage][0],
+            "conversation_length": len(self.history),
+            "language": self.current_language,
+            "user_id": self.user_id,
+            "completion_percentage": self._calculate_completion_percentage(),
+            "collected_fields": list(self.candidate_data.keys()),
+            "missing_fields": self._get_missing_fields(),
+            "technical_questions_count": len(self.technical_questions),
+            "technical_answers_count": len(self.candidate_data.get("technical_answers", [])),
+        }
+        
+        # Add sentiment analysis if available
+        if self.sentiment_analysis_enabled and "sentiment_history" in self.candidate_data:
+            analytics["sentiment_analysis"] = {
+                "total_analyses": len(self.candidate_data["sentiment_history"]),
+                "recent_emotions": [entry["emotion"] for entry in self.candidate_data["sentiment_history"][-5:]]
+            }
+        
+        return analytics
+    
+    def _calculate_completion_percentage(self) -> float:
+        """Calculate the completion percentage of the conversation."""
+        total_stages = len(self.STAGES) - 2  # Exclude 'complete' and 'farewell'
+        completed_stages = 0
+        
+        for stage_name, stage_index in self.STAGES.items():
+            if stage_name in ["complete", "farewell"]:
+                continue
+                
+            if stage_name in self.REQUIRED_FIELDS:
+                required_fields = self.REQUIRED_FIELDS[stage_name]
+                if all(field in self.candidate_data for field in required_fields):
+                    completed_stages += 1
+            elif stage_name == "technical_questions":
+                if "technical_questions" in self.candidate_data and "technical_answers" in self.candidate_data:
+                    if len(self.candidate_data["technical_answers"]) >= len(self.candidate_data["technical_questions"]):
+                        completed_stages += 1
+        
+        return (completed_stages / total_stages) * 100
+    
+    def _get_missing_fields(self) -> List[str]:
+        """Get list of missing required fields."""
+        missing_fields = []
+        
+        for stage_name, required_fields in self.REQUIRED_FIELDS.items():
+            for field in required_fields:
+                if field not in self.candidate_data:
+                    missing_fields.append(field)
+        
+        return missing_fields
+    
+    def get_candidate_summary(self) -> Dict[str, Any]:
+        """Get a comprehensive summary of the candidate's information."""
+        summary = {
+            "session_id": self.session_id,
+            "basic_info": {
+                "name": self.candidate_data.get("name", "Not provided"),
+                "email": self.candidate_data.get("email", "Not provided"),
+                "phone": self.candidate_data.get("phone", "Not provided"),
+                "position": self.candidate_data.get("position", "Not provided"),
+                "location": self.candidate_data.get("location", "Not provided"),
+                "years_experience": self.candidate_data.get("years_experience", "Not provided"),
+            },
+            "technical_info": {
+                "tech_stack": self.candidate_data.get("tech_stack", []),
+                "technical_questions": self.candidate_data.get("technical_questions", []),
+                "technical_answers": self.candidate_data.get("technical_answers", []),
+            },
+            "conversation_meta": {
+                "language": self.current_language,
+                "conversation_complete": self.candidate_data.get("conversation_complete", False),
+                "total_messages": len(self.history),
+                "completion_percentage": self._calculate_completion_percentage(),
+            }
+        }
+        
+        # Add sentiment analysis if available
+        if "sentiment_analysis" in self.candidate_data:
+            summary["sentiment_analysis"] = self.candidate_data["sentiment_analysis"]
+        
+        return summary
+    
+    def update_language(self, new_language: str) -> None:
+        """Update the conversation language."""
+        self.current_language = new_language
+        self.candidate_data["language"] = new_language
+        self.language_manager.update_language_preference(self.session_id, new_language)
+        self._save_session()
+    
+    def get_next_question(self) -> Optional[str]:
+        """Get the next technical question to ask."""
+        if not self.technical_questions:
+            return None
+            
+        answered_count = len(self.candidate_data.get("technical_answers", []))
+        if answered_count < len(self.technical_questions):
+            return self.technical_questions[answered_count]
+        
+        return None 
