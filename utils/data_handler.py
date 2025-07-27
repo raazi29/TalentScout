@@ -196,5 +196,29 @@ class DataHandler:
             summary_lines.append("\nCandidate's Answers:")
             for i, answer in enumerate(data["technical_answers"], 1):
                 summary_lines.append(f"Q{i}: {answer[:100]}...")
+        
+        # Sentiment analysis information if available
+        if "sentiment_analysis" in data:
+            sentiment = data["sentiment_analysis"]
+            summary_lines.append("\nSentiment Analysis:")
+            summary_lines.append(f"Overall Emotional State: {sentiment.get('emotional_state', 'neutral')}")
+            
+            if "feedback" in sentiment and sentiment["feedback"]:
+                summary_lines.append(f"Feedback: {sentiment['feedback']}")
+                
+            if "emotional_shifts" in sentiment and sentiment.get("emotional_shifts"):
+                summary_lines.append("Emotional Shifts Detected:")
+                for shift in sentiment["emotional_shifts"]:
+                    summary_lines.append(f"- {shift[0]} → {shift[1]}")
+        
+        # Sentiment history if available
+        if "sentiment_history" in data and len(data["sentiment_history"]) > 0:
+            summary_lines.append("\nDetailed Emotion Analysis:")
+            # Only show a few key emotional responses
+            significant_emotions = [item for item in data["sentiment_history"] 
+                                  if item["emotion"] != "neutral" and item["score"] > 0.7]
+            if significant_emotions:
+                for i, item in enumerate(significant_emotions[:3], 1):  # Show up to 3
+                    summary_lines.append(f"Response {i}: {item['emotion']} ({item['score']:.2f})")
                 
         return "\n".join(summary_lines) 

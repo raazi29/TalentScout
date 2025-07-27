@@ -6,6 +6,7 @@ import re
 from utils.prompt_manager import PromptManager
 from utils.data_handler import DataHandler
 from utils.llm_router import LLMRouter
+from utils.sentiment_analyzer import SentimentAnalyzer  # Add import for sentiment analyzer
 
 class ConversationManager:
     """Manages conversation flow for the TalentScout Hiring Assistant."""
@@ -48,12 +49,18 @@ class ConversationManager:
         self.prompt_manager = PromptManager()
         self.data_handler = DataHandler()
         self.llm_router = LLMRouter()
+        self.sentiment_analyzer = SentimentAnalyzer()  # Initialize sentiment analyzer
         
         # Load existing session or create new one
         self.candidate_data = self.data_handler.load_candidate_data(self.session_id) or {}
         self.stage = self._determine_current_stage()
         self.history: List[Dict[str, str]] = self.candidate_data.get("conversation_history", [])
         self.technical_questions: List[str] = []
+        
+        # Track sentiment analysis status
+        self.sentiment_analysis_enabled = self.sentiment_analyzer.is_available()
+        if not self.sentiment_analysis_enabled:
+            print("Sentiment analysis is not available. Using fallback mode.")
     
     def _determine_current_stage(self) -> int:
         """Determine the current conversation stage based on collected data."""
@@ -101,6 +108,17 @@ class ConversationManager:
         
         # Extract information from user message
         self._extract_info(user_message)
+        
+        # Analyze sentiment if available
+        if self.sentiment_analysis_enabled:
+            sentiment = self.sentiment_analyzer.get_dominant_emotion(user_message)
+            if "sentiment_history" not in self.candidate_data:
+                self.candidate_data["sentiment_history"] = []
+            self.candidate_data["sentiment_history"].append({
+                "message": user_message,
+                "emotion": sentiment[0],
+                "score": sentiment[1]
+            })
         
         # Generate response based on current stage
         response = self._generate_response(user_message)
@@ -440,6 +458,16 @@ class ConversationManager:
         """Handle the farewell stage."""
         # Create candidate info summary for the farewell message
         candidate_info = self.data_handler.get_candidate_summary(self.session_id)
+        
+        # Add sentiment analysis if available
+        if self.sentiment_analysis_enabled and "sentiment_history" in self.candidate_data:
+            sentiment_analysis = self.sentiment_analyzer.analyze_interview_progress(self.history)
+            self.candidate_data["sentiment_analysis"] = sentiment_analysis
+            
+            # Add sentiment info to the candidate summary for the recruiter
+            if sentiment_analysis["feedback"]:
+                candidate_info += f"\n\nSentiment Analysis:\n{sentiment_analysis['feedback']}"
+        
         prompt = self.prompt_manager.get_prompt("farewell", candidate_info=candidate_info)
         response = self.llm_router.get_response(prompt)
         return response

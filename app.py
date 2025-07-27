@@ -100,6 +100,60 @@ def display_sidebar():
         Your responses will be reviewed by the TalentScout team for potential opportunities.
         """)
         
+        # Sentiment Analysis Section (if available)
+        if "conversation_manager" in st.session_state and st.session_state.conversation_manager.sentiment_analysis_enabled:
+            st.markdown("---")
+            st.subheader("Interview Insights")
+            
+            # Check if we have sentiment data
+            candidate_data = st.session_state.conversation_manager.candidate_data
+            if "sentiment_history" in candidate_data and len(candidate_data["sentiment_history"]) > 0:
+                # Get the latest emotion
+                latest = candidate_data["sentiment_history"][-1]
+                emotion = latest["emotion"]
+                score = latest["score"]
+                
+                # Display emotion with appropriate emoji
+                emotion_emojis = {
+                    "joy": "😊",
+                    "sadness": "😔",
+                    "anger": "😠",
+                    "fear": "😨",
+                    "surprise": "😮",
+                    "disgust": "😒",
+                    "neutral": "😐"
+                }
+                
+                emoji = emotion_emojis.get(emotion, "😐")
+                
+                # Only show if score is above threshold
+                if score > 0.6:
+                    st.markdown(f"**Current Mood:** {emoji} {emotion.capitalize()} ({score:.2f})")
+                
+                # Show emotional progression if we have enough data
+                if len(candidate_data["sentiment_history"]) >= 3:
+                    try:
+                        import pandas as pd
+                        import matplotlib.pyplot as plt
+                        
+                        # Extract emotions for chart
+                        emotions_data = []
+                        for item in candidate_data["sentiment_history"]:
+                            emotions_data.append({
+                                "emotion": item["emotion"],
+                                "score": item["score"]
+                            })
+                        
+                        # Create dataframe
+                        df = pd.DataFrame(emotions_data)
+                        
+                        # Display as line chart if we have more than 3 data points
+                        if len(df) > 3:
+                            st.write("**Emotional Progression:**")
+                            st.line_chart(df.groupby("emotion").size().reset_index(name="count"))
+                    except Exception as e:
+                        st.write("Could not display emotion chart")
+        
         st.markdown("---")
         st.subheader("Supported Technologies")
         
@@ -137,6 +191,14 @@ def main():
     
     # Main content area
     st.markdown("<h2 style='text-align: center;'>Chat with TalentScout</h2>", unsafe_allow_html=True)
+    
+    # Display sentiment alert for recruiter if strong negative emotions detected
+    if "conversation_manager" in st.session_state:
+        candidate_data = st.session_state.conversation_manager.candidate_data
+        if ("sentiment_history" in candidate_data and 
+            any(item["emotion"] in ["anger", "fear", "sadness"] and item["score"] > 0.7 
+                for item in candidate_data.get("sentiment_history", []))):
+            st.warning("⚠️ Candidate may be experiencing stress or negative emotions. Consider a more supportive approach.")
     
     # Chat interface
     display_chat()
