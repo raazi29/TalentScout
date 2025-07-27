@@ -73,6 +73,172 @@ st.markdown("""
         padding: 10px;
         margin: 10px 0;
     }
+    /* Sidebar background and padding */
+    section[data-testid="stSidebar"] {
+        background: #20232a !important;
+        color: #f1f1f1 !important;
+        padding: 32px 18px 24px 18px !important;
+        min-width: 270px;
+        max-width: 350px;
+    }
+    /* Sidebar section separation */
+    .sidebar-section {
+        margin-bottom: 28px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid #282b36;
+    }
+    .sidebar-section:last-child {
+        border-bottom: none;
+        margin-bottom: 0;
+    }
+    /* Sidebar headings */
+    .sidebar-section h3, .sidebar-section h4, .sidebar-section h5 {
+        color: #e3e3e3 !important;
+        font-weight: 700;
+        margin-bottom: 10px;
+        margin-top: 0;
+    }
+    /* Language selector row */
+    .sidebar-lang-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 8px;
+    }
+    .sidebar-lang-row select, .sidebar-lang-row .stSelectbox {
+        flex: 1 1 auto;
+        min-width: 120px;
+        font-size: 1rem;
+    }
+    .sidebar-lang-row button, .sidebar-lang-row .stButton > button {
+        min-width: 90px;
+        height: 36px;
+        font-size: 1rem;
+        margin: 0;
+        border-radius: 8px;
+        background: #23262f;
+        color: #f1f1f1;
+        border: 1px solid #33374a;
+        transition: background 0.2s, color 0.2s;
+    }
+    .sidebar-lang-row button:hover, .sidebar-lang-row .stButton > button:hover {
+        background: #8e24aa;
+        color: #fff;
+    }
+    /* Progress bar styling */
+    .stProgress > div > div > div > div {
+        background: linear-gradient(90deg, #8e24aa 0%, #4CAF50 100%);
+        border-radius: 6px;
+        height: 12px !important;
+    }
+    .stProgress {
+        margin-top: 8px;
+        margin-bottom: 8px;
+    }
+    /* Sidebar quick actions */
+    .sidebar-actions-row {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 10px;
+    }
+    .sidebar-actions-row .stButton > button {
+        flex: 1 1 auto;
+        min-width: 0;
+        font-size: 1rem;
+        padding: 0.4rem 0.8rem;
+    }
+    /* Sidebar expander and expander content */
+    .stExpander {
+        background: #23262f !important;
+        color: #f1f1f1 !important;
+        border-radius: 8px !important;
+        margin-bottom: 8px !important;
+    }
+    .stExpanderHeader {
+        font-weight: 600 !important;
+        color: #e3e3e3 !important;
+    }
+    /* Sidebar footer */
+    .sidebar-footer {
+        color: #b0b3c6;
+        font-size: 0.95rem;
+        margin-top: 18px;
+        text-align: center;
+    }
+    /* Modern sidebar button styles */
+    .stButton > button {
+        border-radius: 10px !important;
+        font-weight: 600 !important;
+        font-size: 1.08rem !important;
+        padding: 0.6rem 1.4rem !important;
+        margin-bottom: 12px !important;
+        background: linear-gradient(90deg, #8e24aa 0%, #4CAF50 100%) !important;
+        color: #fff !important;
+        border: none !important;
+        box-shadow: 0 2px 8px rgba(142,36,170,0.10);
+        display: flex;
+        align-items: center;
+        gap: 0.7em;
+        transition: background 0.2s, box-shadow 0.2s, color 0.2s;
+    }
+    .stButton > button:hover {
+        background: linear-gradient(90deg, #a450c7 0%, #43e97b 100%) !important;
+        color: #fff !important;
+        box-shadow: 0 4px 16px rgba(142,36,170,0.18);
+    }
+    /* Icon for button (SVG inline) */
+    .sidebar-btn-icon {
+        width: 1.2em;
+        height: 1.2em;
+        margin-right: 0.5em;
+        vertical-align: middle;
+        display: inline-block;
+    }
+    /* Remove extra margin for last button */
+    .stButton:last-child > button {
+        margin-bottom: 0 !important;
+    }
+    /* Compact Apply Language button */
+    .stButton > button[data-testid="apply-language-btn"] {
+        min-width: 50px !important;
+        max-width: 50px !important;
+        height: 4px !important;
+        font-size: 0.68rem !important;
+        padding: 0.2rem 0.8rem !important;
+        background: #23262f !important;
+        color: #f1f1f1 !important;
+        border: 1.5px solid #8e24aa !important;
+        border-radius: 8px !important;
+        box-shadow: none !important;
+        margin-bottom: 8px !important;
+        transition: background 0.18s, color 0.18s, border 0.18s;
+    }
+    .stButton > button[data-testid="apply-language-btn"]:hover {
+        background: #8e24aa !important;
+        color: #fff !important;
+        border: 1.5px solid #8e24aa !important;
+    }
+    /* Modern solid color for all sidebar buttons */
+    .stButton > button:not([data-testid="apply-language-btn"]) {
+        border-radius: 8px !important;
+        font-weight: 60 !important;
+        font-size: .68rem !important;
+        padding: 0.6rem 1.4rem !important;
+        margin-bottom: 12px !important;
+        background: #8e24aa !important;
+        color: #fff !important;
+        border: none !important;
+        box-shadow: 0 2px 8px rgba(142,36,170,0.10);
+        display: flex;
+        align-items: center;
+        gap: 0.7em;
+        transition: background 0.2s, box-shadow 0.2s, color 0.2s;
+    }
+    .stButton > button:not([data-testid="apply-language-btn"]):hover {
+        background: #6d1b7b !important;
+        color: #fff !important;
+        box-shadow: 0 4px 16px rgba(142,36,170,0.18);
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -122,7 +288,7 @@ def display_language_selector():
         )
     
     with col2:
-        if st.button("Apply Language", type="secondary"):
+        if st.button("Apply", type="secondary"):
             if selected_lang != st.session_state.selected_language:
                 st.session_state.selected_language = selected_lang
                 conversation_manager = st.session_state.conversation_manager
@@ -361,51 +527,64 @@ def display_chat():
         st.rerun()
 
 def display_sidebar():
-    """Display enhanced sidebar with all new features."""
+    """Display enhanced sidebar with all new features and modern UI."""
     with st.sidebar:
+        st.markdown('<div class="sidebar-section">', unsafe_allow_html=True)
         st.title("🎯 " + config.APP_TITLE)
         st.caption(config.APP_DESCRIPTION)
-        
-        st.markdown("---")
-        
+        st.markdown('</div>', unsafe_allow_html=True)
         # Language Selection
-        display_language_selector()
-        
+        st.markdown('<div class="sidebar-section">', unsafe_allow_html=True)
+        st.markdown("### 🌍 Language Selection")
+        from utils.language_manager import LanguageManager
+        lang_manager = LanguageManager()
+        supported_languages = lang_manager.get_supported_languages()
+        languages = {code: f"{info['flag']} {info['native_name']} ({info['name']})" for code, info in supported_languages.items()}
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            selected_lang = st.selectbox(
+                "Choose your preferred language:",
+                options=list(languages.keys()),
+                format_func=lambda x: languages[x],
+                index=list(languages.keys()).index(st.session_state.selected_language)
+            )
+        with col2:
+            if st.button("🌐 Apply", key="apply_language_btn"):
+                if selected_lang != st.session_state.selected_language:
+                    st.session_state.selected_language = selected_lang
+                    conversation_manager = st.session_state.conversation_manager
+                    conversation_manager.update_language(selected_lang)
+                    st.success(f"Language changed to {languages[selected_lang]}")
+                    st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
         # Conversation Progress
+        st.markdown('<div class="sidebar-section">', unsafe_allow_html=True)
         if "conversation_manager" in st.session_state:
             display_conversation_progress()
-            
+        st.markdown('</div>', unsafe_allow_html=True)
         # Quick Actions
+        st.markdown('<div class="sidebar-section">', unsafe_allow_html=True)
         st.markdown("### ⚡ Quick Actions")
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            if st.button("📊 Show Analytics", use_container_width=True):
-                st.session_state.show_analytics = not st.session_state.show_analytics
-        
-        with col2:
-            if st.button("🔄 Reset Chat", use_container_width=True):
-                if "conversation_manager" in st.session_state:
-                    st.session_state.conversation_manager.reset_conversation()
-                st.session_state.messages = []
-                st.session_state.show_analytics = False
-                # Add initial greeting after reset
-                conversation_manager = st.session_state.conversation_manager
-                initial_message = conversation_manager.process_message("Hello")
-                st.session_state.messages.append({"role": "assistant", "content": initial_message})
-                st.rerun()
-        
-        # Candidate Summary Toggle
-        if st.button("👤 Toggle Summary", use_container_width=True):
+        # Modern buttons with icons
+        if st.button("📊 Show Analytics"):
+            st.session_state.show_analytics = not st.session_state.show_analytics
+        if st.button("🔄 Reset Chat"):
+            if "conversation_manager" in st.session_state:
+                st.session_state.conversation_manager.reset_conversation()
+            st.session_state.messages = []
+            st.session_state.show_analytics = False
+            conversation_manager = st.session_state.conversation_manager
+            initial_message = conversation_manager.process_message("Hello")
+            st.session_state.messages.append({"role": "assistant", "content": initial_message})
+            st.rerun()
+        if st.button("👤 Toggle Summary"):
             if "show_summary" not in st.session_state:
                 st.session_state.show_summary = True
             else:
                 st.session_state.show_summary = not st.session_state.show_summary
-        
-        st.markdown("---")
-        
+        st.markdown('</div>', unsafe_allow_html=True)
         # About Section
+        st.markdown('<div class="sidebar-section">', unsafe_allow_html=True)
         st.subheader("ℹ️ About TalentScout")
         st.markdown("""
         **Enhanced Features:**
@@ -416,21 +595,21 @@ def display_sidebar():
         - 🔧 Personalized technical questions
         - ⚡ Performance optimization
         """)
-        
+        st.markdown('</div>', unsafe_allow_html=True)
         # Supported Technologies
+        st.markdown('<div class="sidebar-section">', unsafe_allow_html=True)
         st.subheader("🛠️ Supported Technologies")
-        
         for category, techs in config.TECH_CATEGORIES.items():
             with st.expander(f"{category.replace('_', ' ').title()} ({len(techs)})"):
                 cols = st.columns(2)
                 for i, tech in enumerate(techs):
                     cols[i % 2].markdown(f"• {tech}")
-        
-        st.markdown("---")
-        
+        st.markdown('</div>', unsafe_allow_html=True)
         # Footer
+        st.markdown('<div class="sidebar-footer">', unsafe_allow_html=True)
         st.caption("© 2025 TalentScout Inc. All rights reserved.")
         st.caption("For support: support@talentscout.com")
+        st.markdown('</div>', unsafe_allow_html=True)
 
 def main():
     """Main application function with enhanced features."""

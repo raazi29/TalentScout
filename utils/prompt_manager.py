@@ -38,58 +38,40 @@ class PromptManager:
             return self.templates["fallback"]
     
     def _greeting_template(self) -> str:
-        """Template for greeting a new candidate."""
-        return """
-        You are TalentScout's AI Hiring Assistant. Your role is to conduct an initial screening interview with the candidate.
-
-        Introduce yourself to the candidate in a professional but friendly manner. Explain that:
-        1. You're here to gather some basic information about their experience and skills
-        2. You'll ask some technical questions related to their tech stack
-        3. This is just an initial screening, and qualified candidates will proceed to human interviews
-        
-        Keep your responses conversational but concise. Start by asking for their name.
-        """
+        """Greeting prompt: clear, friendly, and explicit about the bot's role. Instructs LLM to avoid hallucination."""
+        return (
+            "You are TalentScout's AI Hiring Assistant. Greet the candidate professionally and explain: "
+            "1. You will collect basic info and tech skills. "
+            "2. You will ask technical questions based on their tech stack. "
+            "3. This is an initial screening; qualified candidates will proceed to human interviews. "
+            "If you are unsure about any information, politely ask for clarification. Never make up facts. "
+            "Start by asking for their name."
+        )
     
     def _candidate_info_template(self) -> str:
-        """Template for gathering candidate information."""
-        return """
-        You are TalentScout's AI Hiring Assistant conducting an initial screening interview.
-        
-        Based on the conversation so far, collect the following essential candidate information:
-        - Full Name (if not already provided)
-        - Email Address
-        - Phone Number
-        - Years of Experience
-        - Desired Position(s)
-        - Current Location
-        
-        If any information is missing, ask for it politely. Be conversational rather than robotic.
-        
-        Current known information about the candidate:
-        {known_info}
-        
-        Next information to collect:
-        {next_info}
-        """
+        """Candidate info prompt: explicit validation, anti-hallucination, and clear instructions."""
+        return (
+            "You are TalentScout's AI Hiring Assistant. Collect candidate info with these rules: "
+            "1. Name: 2-4 alphabetic words, proper capitalization. "
+            "2. Email: Standard email format. "
+            "3. Phone: International format (+XX-XXX-XXX-XXXX). "
+            "4. Experience: Numeric years (1-50). "
+            "5. Position: Common tech roles. "
+            "6. Location: City/Country. "
+            "Known info: {known_info}. "
+            "Next info to collect: {next_info}. "
+            "If info is invalid or missing, politely request correction with an example. If unsure, ask for clarification. Never make up or assume info."
+        )
     
     def _tech_stack_template(self) -> str:
-        """Template for gathering tech stack information."""
-        return """
-        You are TalentScout's AI Hiring Assistant conducting an initial screening interview.
-
-        Ask the candidate about their technical skills and proficiency levels. Focus on:
-        - Programming languages they're proficient in
-        - Frameworks and libraries they've worked with
-        - Database technologies they're familiar with
-        - Cloud services they have experience with
-        - Development tools they regularly use
-        
-        Present this in a conversational way, not as a checklist. You might say something like:
-        "I'd like to learn about your technical skills. Could you tell me about the programming languages, frameworks, databases, and other technologies you're comfortable working with?"
-        
-        Current known information about the candidate:
-        {known_info}
-        """
+        """Tech stack prompt: concise, asks for proficiency, and robust against hallucination."""
+        return (
+            "You are TalentScout's AI Hiring Assistant. Ask for the candidate's 3-5 core tech skills with proficiency (Beginner/Intermediate/Expert). "
+            "Focus on relevant technologies for their desired position. "
+            "Validate against known technologies. If unsure about a technology, ask for clarification. "
+            "Known info: {known_info}. "
+            "Never make up or assume skills."
+        )
     
     def _follow_up_template(self) -> str:
         """Template for follow-up questions to gather more context."""
@@ -111,21 +93,18 @@ class PromptManager:
         """
     
     def _technical_questions_template(self) -> str:
-        """Template for generating technical questions."""
-        return """
-        Generate {num_questions} technical interview questions for a candidate with {years_experience} years of experience.
-        
-        Focus on the following technologies: {tech_stack}.
-        
-        The questions should:
-        - Be appropriate for someone with {years_experience} years of experience
-        - Test practical knowledge and problem-solving skills
-        - Require more than yes/no answers
-        - Be specific to one technology each
-        - Cover different aspects of the technologies mentioned
-        
-        Format the output as a numbered list of questions.
-        """
+        """Technical questions prompt: practical, non-trivial, and anti-hallucination."""
+        return (
+            "Generate {num_questions} technical interview questions for a candidate with {years_experience} years of experience. "
+            "Focus on: {tech_stack}. "
+            "Questions must: "
+            "- Be practical, not trivia. "
+            "- Require more than yes/no answers. "
+            "- Be specific to one technology each. "
+            "- Cover different aspects. "
+            "- If unsure, ask for clarification rather than making up a question. "
+            "Format as a numbered list."
+        )
     
     def _farewell_template(self) -> str:
         """Template for concluding the interview."""
@@ -146,17 +125,11 @@ class PromptManager:
         """
     
     def _fallback_template(self) -> str:
-        """Template for handling unexpected inputs."""
-        return """
-        You are TalentScout's AI Hiring Assistant conducting an initial screening interview.
-        
-        The candidate has provided an input that doesn't align with the current interview flow or is unclear.
-        
-        Respond politely and try to guide the conversation back on track. Remind them of the purpose of this interview (initial screening for technical roles) and continue with the relevant question based on what information you still need to collect.
-        
-        Current known information about the candidate:
-        {known_info}
-        
-        Current interview stage:
-        {current_stage}
-        """ 
+        """Fallback prompt: keeps conversation on track, never hallucinates, always asks for clarification if unsure."""
+        return (
+            "You are TalentScout's AI Hiring Assistant. The candidate's input is unclear or off-topic. "
+            "Politely guide the conversation back on track. Remind them of the interview purpose. "
+            "If unsure, ask for clarification. Never make up or assume information. "
+            "Known info: {known_info}. "
+            "Current stage: {current_stage}."
+        )

@@ -198,12 +198,18 @@ class ConversationManager:
             if email_match:
                 self.candidate_data["email"] = email_match.group(0)
         
+        # Name validation (2-4 alphabetic names)
+        if self.stage == self.STAGES["name"] and "name" not in self.candidate_data:
+            name_match = re.search(r"^\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})\s*$", message)
+            if name_match:
+                self.candidate_data["name"] = name_match.group(1).strip()
+
         # Extract phone if in contact info stage
         if self.stage == self.STAGES["contact_info"] and "phone" not in self.candidate_data:
-            phone_match = re.search(r"\b(?:\+\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b", message)
-            if phone_match:
-                self.candidate_data["phone"] = phone_match.group(0)
-        
+            phone_match = re.search(r"\+?\d{1,4}?[-.\s]?\(?\d{1,3}\)?[-.\s]?\d{1,4}[-.\s]?\d{1,4}[-.\s]?\d{1,9}", message)
+            if phone_match and len(phone_match.group()) >= 7:
+                self.candidate_data["phone"] = phone_match.group().strip()
+
         # Extract years of experience
         if self.stage == self.STAGES["experience"] and "years_experience" not in self.candidate_data:
             experience_match = re.search(r"(\d+)(?:\s+years|\s+year|\s+yr|\s*\+\s*years|\s*\+)", message, re.IGNORECASE)
@@ -216,11 +222,19 @@ class ConversationManager:
         # Extract position
         if self.stage == self.STAGES["position"] and "position" not in self.candidate_data:
             # This is more complex, use the full message
-            self.candidate_data["position"] = message.strip()
+            # Validate position title
+            position_match = re.search(r"\b(senior|junior|lead|manager|director|developer|engineer)\b", 
+                message, re.IGNORECASE)
+            if position_match:
+                self.candidate_data["position"] = position_match.group(1).title()
+            else:
+                self.candidate_data["position"] = message.strip()
         
         # Extract location
         if self.stage == self.STAGES["location"] and "location" not in self.candidate_data:
-            self.candidate_data["location"] = message.strip()
+            location_match = re.search(r"\b[A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)*\b", message)
+            if location_match:
+                self.candidate_data["location"] = location_match.group().strip()
         
         # Extract tech stack
         if self.stage == self.STAGES["tech_stack"] and "tech_stack" not in self.candidate_data:
@@ -746,4 +760,4 @@ class ConversationManager:
         if answered_count < len(self.technical_questions):
             return self.technical_questions[answered_count]
         
-        return None 
+        return None

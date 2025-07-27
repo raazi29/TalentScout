@@ -7,24 +7,20 @@ load_dotenv()
 
 # API Keys
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+# OpenRouter fallback configuration (for use only if Groq is unavailable)
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+# List of best, latest, free OpenRouter models for 2025 (fallback order)
+OPENROUTER_MODELS_2025 = [
+    "deepseek-ai/deepseek-llm-67b-chat",  # DeepSeek LLM 67B (very strong, free)
+    "qwen/qwen-2-72b-instruct",           # Qwen2 72B (powerful, free)
+    "meta-llama/llama-3-70b-instruct",   # Llama 3 70B (latest, free)
+    "mistralai/mixtral-8x22b",           # Mixtral 8x22B (MoE, strong reasoning)
+    "google/gemma-7b-it"                  # Gemma 7B (Google, free)
+]
 HUGGINGFACE_API_KEY = os.getenv("HUGGINGFACE_API_KEY")
 
-# Model configurations
-GROQ_MODEL = "llama3-70b-8192"  # Fast model for most interactions
-
-# OpenRouter models with multiple selection options
-OPENROUTER_MODELS = {
-    "primary": "tngtech/deepseek-r1t2-chimera",  # High performance with 20% faster speed than R1-0528
-    "alternatives": {
-        "deepseek_r1_0528": "deepseek/r1-0528",  # Performance comparable to OpenAI o1, 671B parameters
-        "tng_r1t_chimera": "tngtech/deepseek-r1t-chimera",  # Combines R1 reasoning with V3 token efficiency
-        "microsoft_mai_ds_r1": "microsoft/mai-ds-r1",  # Enhanced safety profile with strong reasoning capabilities
-        "deepseek_r1": "deepseek/r1"  # Original R1 model with 671B parameters, MIT licensed
-    }
-}
-# Default OpenRouter model to use
-OPENROUTER_MODEL = OPENROUTER_MODELS["primary"]
+# Model configuration: Use only Groq's llama3-8b-8192 for all LLM calls (fastest, most reliable, least hallucination among free models)
+GROQ_MODEL = "llama3-8b-8192"
 
 # Conversation settings
 MAX_TECHNICAL_QUESTIONS = 5
@@ -42,4 +38,4 @@ TECH_CATEGORIES = {
 
 # App settings
 APP_TITLE = "TalentScout Hiring Assistant"
-APP_DESCRIPTION = "AI-powered chatbot for initial candidate screening" 
+APP_DESCRIPTION = "AI-powered chatbot for initial candidate screening"
