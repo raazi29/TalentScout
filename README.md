@@ -11,7 +11,7 @@ An intelligent hiring assistant that conducts initial candidate interviews, gath
 
 ## 🎬 Live Demo
 
-🌐 **[Try TalentScout Live](https://talentscout-i0hd.onrender.com)** *(Add your Render URL here)*
+🌐 **[Try TalentScout Live](https://talentscout-i0hd.onrender.com)** 
 
 > *Experience the full interview process with multilingual support and real-time analytics*
 

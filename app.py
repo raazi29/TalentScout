@@ -5,11 +5,17 @@ A comprehensive AI-powered chatbot for initial candidate screening with advanced
 """
 import uuid
 import streamlit as st
-import pandas as pd
-import plotly.express as px
-import plotly.graph_objects as go
 from utils.conversation import ConversationManager
 import config
+
+# Optional imports for analytics (will gracefully degrade if not available)
+try:
+    import pandas as pd
+    import plotly.express as px
+    import plotly.graph_objects as go
+    ANALYTICS_AVAILABLE = True
+except ImportError:
+    ANALYTICS_AVAILABLE = False
 
 # Set page configuration
 st.set_page_config(
@@ -585,7 +591,7 @@ def display_advanced_analytics():
         
         # Sentiment analysis chart
         try:
-            if 'sentiment_analysis' in analytics and analytics['sentiment_analysis'].get('total_analyses', 0) > 0:
+            if ANALYTICS_AVAILABLE and 'sentiment_analysis' in analytics and analytics['sentiment_analysis'].get('total_analyses', 0) > 0:
                 st.markdown("**😊 Emotional Progression**")
                 
                 # Create sentiment chart
@@ -611,6 +617,8 @@ def display_advanced_analytics():
                         st.info("No emotion data available yet.")
                 else:
                     st.info("No sentiment history available yet.")
+            elif not ANALYTICS_AVAILABLE:
+                st.info("📊 Advanced analytics temporarily unavailable - core functionality working perfectly!")
         except Exception as e:
             st.warning(f"Sentiment chart error: {str(e)}")
         
@@ -618,38 +626,55 @@ def display_advanced_analytics():
         st.markdown("**🔄 Conversation Flow**")
         
         try:
-            # Create stage progression chart
-            conversation_stages = [
-                'greeting', 'name', 'contact_info', 'experience', 
-                'position', 'location', 'tech_stack', 'technical_questions', 'farewell', 'complete'
-            ]
-            stage_progress = []
-            
-            for i, stage in enumerate(conversation_stages):
-                if i <= analytics.get('current_stage', 0):
-                    stage_progress.append(1)
-                else:
-                    stage_progress.append(0)
-            
-            fig = go.Figure(data=[
-                go.Bar(
-                    x=[stage.replace('_', ' ').title() for stage in conversation_stages],
-                    y=stage_progress,
-                    marker_color=['#4CAF50' if p == 1 else '#E0E0E0' for p in stage_progress]
+            if ANALYTICS_AVAILABLE:
+                # Create stage progression chart
+                conversation_stages = [
+                    'greeting', 'name', 'contact_info', 'experience', 
+                    'position', 'location', 'tech_stack', 'technical_questions', 'farewell', 'complete'
+                ]
+                stage_progress = []
+                
+                for i, stage in enumerate(conversation_stages):
+                    if i <= analytics.get('current_stage', 0):
+                        stage_progress.append(1)
+                    else:
+                        stage_progress.append(0)
+                
+                fig = go.Figure(data=[
+                    go.Bar(
+                        x=[stage.replace('_', ' ').title() for stage in conversation_stages],
+                        y=stage_progress,
+                        marker_color=['#4CAF50' if p == 1 else '#E0E0E0' for p in stage_progress]
+                    )
+                ])
+                
+                fig.update_layout(
+                    title="Stage Completion",
+                    xaxis_title="Stages",
+                    yaxis_title="Status",
+                    showlegend=False,
+                    height=300
                 )
-            ])
-            
-            fig.update_layout(
-                title="Stage Completion",
-                xaxis_title="Stages",
-                yaxis_title="Status",
-                showlegend=False,
-                height=300
-            )
-            
-            st.plotly_chart(fig, use_container_width=True)
+                
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                # Simple text-based progress when charts not available
+                conversation_stages = [
+                    'Greeting', 'Name', 'Contact Info', 'Experience', 
+                    'Position', 'Location', 'Tech Stack', 'Technical Questions', 'Farewell', 'Complete'
+                ]
+                current_stage_idx = analytics.get('current_stage', 0)
+                
+                st.markdown("**Interview Progress:**")
+                for i, stage in enumerate(conversation_stages):
+                    if i <= current_stage_idx:
+                        st.markdown(f"✅ {stage}")
+                    elif i == current_stage_idx + 1:
+                        st.markdown(f"🔄 {stage} (Current)")
+                    else:
+                        st.markdown(f"⏳ {stage}")
         except Exception as e:
-            st.warning(f"Conversation flow chart error: {str(e)}")
+            st.warning(f"Conversation flow error: {str(e)}")
             
     except Exception as e:
         st.error(f"Analytics error: {str(e)}")
