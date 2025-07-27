@@ -19,225 +19,390 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Enhanced CSS for better UI
+# Dark Theme CSS with Fixed Colors
 st.markdown("""
 <style>
+    /* Global dark theme styling */
+    .stApp {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background-color: #0f172a !important;
+        color: #e2e8f0 !important;
+    }
+    
     /* Main container styling */
     .block-container {
-        padding-top: 2rem;
-        padding-bottom: 2rem;
+        padding-top: 0.5rem;
+        padding-bottom: 1rem;
+        max-width: 1000px;
+        background-color: #0f172a !important;
+    }
+    
+    /* Header styling */
+    .main-header {
+        background: #1e293b;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        color: #f1f5f9;
+        text-align: center;
+        border: 1px solid #334155;
+    }
+    
+    .main-header h1 {
+        font-size: 1.5rem;
+        font-weight: 600;
+        margin-bottom: 0.25rem;
+        color: #f1f5f9 !important;
+    }
+    
+    .main-header p {
+        font-size: 0.9rem;
+        margin-bottom: 0;
+        color: #cbd5e1 !important;
     }
     
     /* Chat message styling */
-    .stChatMessageContent {
-        background-color: rgba(240, 242, 246, 0.1) !important;
-        border-radius: 10px !important;
-        padding: 15px !important;
+    .stChatMessage {
+        margin-bottom: 0.5rem;
+    }
+    
+    .stChatMessage[data-testid="chat-message-user"] {
+        background: #3b82f6 !important;
+        color: #ffffff !important;
+        padding: 0.75rem !important;
+        margin-left: 10% !important;
+        border: 1px solid #2563eb !important;
+    }
+    
+    .stChatMessage[data-testid="chat-message-assistant"] {
+        background: #1e293b !important;
+        color: #e2e8f0 !important;
+        padding: 0.75rem !important;
+        margin-right: 10% !important;
+        border-left: 3px solid #3b82f6 !important;
+        border: 1px solid #334155 !important;
     }
     
     /* Progress bar styling */
     .stProgress > div > div > div > div {
-        background-color: #4CAF50;
+        background: #3b82f6 !important;
+        height: 6px !important;
+    }
+    
+    .stProgress > div > div {
+        background: #334155 !important;
     }
     
     /* Sidebar styling */
-    .css-1d391kg {
-        background-color: #f8f9fa;
+    section[data-testid="stSidebar"] {
+        background: #1e293b !important;
+        color: #e2e8f0 !important;
+        padding: 1rem !important;
+        min-width: 250px;
+        max-width: 280px;
+        border-right: 1px solid #334155 !important;
+    }
+    
+    .sidebar-section {
+        background: #0f172a;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        border: 1px solid #334155;
+        color: #e2e8f0 !important;
+    }
+    
+    .sidebar-section h3, .sidebar-section h4, .sidebar-section h5 {
+        color: #f1f5f9 !important;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        margin-top: 0;
+        font-size: 1rem;
     }
     
     /* Button styling */
     .stButton > button {
-        border-radius: 8px;
-        font-weight: 600;
+        background: #3b82f6 !important;
+        color: #ffffff !important;
+        border: 1px solid #2563eb !important;
+        font-weight: 500 !important;
+        padding: 0.5rem 1rem !important;
+        font-size: 0.875rem !important;
+        width: 100% !important;
+        margin-bottom: 0.25rem !important;
     }
     
-    /* Metric cards */
-    .metric-card {
-        background-color: #ffffff;
-        border: 1px solid #e0e0e0;
-        border-radius: 10px;
-        padding: 20px;
-        margin: 10px 0;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-    
-    /* Hide footer */
-    footer {
-        visibility: hidden;
+    .stButton > button:hover {
+        background: #2563eb !important;
+        color: #ffffff !important;
     }
     
     /* Language selector styling */
     .language-selector {
-        background-color: #f0f2f6;
-        border-radius: 8px;
-        padding: 10px;
-        margin: 10px 0;
+        background: #0f172a;
+        padding: 0.5rem;
+        margin: 0.5rem 0;
+        border: 1px solid #334155;
+        color: #e2e8f0 !important;
     }
-    /* Sidebar background and padding */
-    section[data-testid="stSidebar"] {
-        background: #20232a !important;
-        color: #f1f1f1 !important;
-        padding: 32px 18px 24px 18px !important;
-        min-width: 270px;
-        max-width: 350px;
+    
+    /* Metric cards */
+    .metric-card {
+        background: #0f172a !important;
+        padding: 1rem;
+        margin: 0.5rem 0;
+        border: 1px solid #334155;
+        color: #e2e8f0 !important;
     }
-    /* Sidebar section separation */
-    .sidebar-section {
-        margin-bottom: 28px;
-        padding-bottom: 12px;
-        border-bottom: 1px solid #282b36;
+    
+    .metric-card h4 {
+        color: #f1f5f9 !important;
+        margin-bottom: 0.5rem;
     }
-    .sidebar-section:last-child {
-        border-bottom: none;
-        margin-bottom: 0;
-    }
-    /* Sidebar headings */
-    .sidebar-section h3, .sidebar-section h4, .sidebar-section h5 {
-        color: #e3e3e3 !important;
-        font-weight: 700;
-        margin-bottom: 10px;
-        margin-top: 0;
-    }
-    /* Language selector row */
-    .sidebar-lang-row {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        margin-bottom: 8px;
-    }
-    .sidebar-lang-row select, .sidebar-lang-row .stSelectbox {
-        flex: 1 1 auto;
-        min-width: 120px;
-        font-size: 1rem;
-    }
-    .sidebar-lang-row button, .sidebar-lang-row .stButton > button {
-        min-width: 90px;
-        height: 36px;
-        font-size: 1rem;
-        margin: 0;
-        border-radius: 8px;
-        background: #23262f;
-        color: #f1f1f1;
-        border: 1px solid #33374a;
-        transition: background 0.2s, color 0.2s;
-    }
-    .sidebar-lang-row button:hover, .sidebar-lang-row .stButton > button:hover {
-        background: #8e24aa;
-        color: #fff;
-    }
-    /* Progress bar styling */
-    .stProgress > div > div > div > div {
-        background: linear-gradient(90deg, #8e24aa 0%, #4CAF50 100%);
-        border-radius: 6px;
-        height: 12px !important;
-    }
-    .stProgress {
-        margin-top: 8px;
-        margin-bottom: 8px;
-    }
-    /* Sidebar quick actions */
-    .sidebar-actions-row {
-        display: flex;
-        gap: 10px;
-        margin-bottom: 10px;
-    }
-    .sidebar-actions-row .stButton > button {
-        flex: 1 1 auto;
-        min-width: 0;
-        font-size: 1rem;
-        padding: 0.4rem 0.8rem;
-    }
-    /* Sidebar expander and expander content */
-    .stExpander {
-        background: #23262f !important;
-        color: #f1f1f1 !important;
-        border-radius: 8px !important;
-        margin-bottom: 8px !important;
-    }
-    .stExpanderHeader {
-        font-weight: 600 !important;
-        color: #e3e3e3 !important;
-    }
-    /* Sidebar footer */
-    .sidebar-footer {
-        color: #b0b3c6;
-        font-size: 0.95rem;
-        margin-top: 18px;
-        text-align: center;
-    }
-    /* Modern sidebar button styles */
-    .stButton > button {
-        border-radius: 10px !important;
-        font-weight: 600 !important;
-        font-size: 1.08rem !important;
-        padding: 0.6rem 1.4rem !important;
-        margin-bottom: 12px !important;
-        background: linear-gradient(90deg, #8e24aa 0%, #4CAF50 100%) !important;
-        color: #fff !important;
-        border: none !important;
-        box-shadow: 0 2px 8px rgba(142,36,170,0.10);
-        display: flex;
-        align-items: center;
-        gap: 0.7em;
-        transition: background 0.2s, box-shadow 0.2s, color 0.2s;
-    }
-    .stButton > button:hover {
-        background: linear-gradient(90deg, #a450c7 0%, #43e97b 100%) !important;
-        color: #fff !important;
-        box-shadow: 0 4px 16px rgba(142,36,170,0.18);
-    }
-    /* Icon for button (SVG inline) */
-    .sidebar-btn-icon {
-        width: 1.2em;
-        height: 1.2em;
-        margin-right: 0.5em;
-        vertical-align: middle;
+    
+    /* Status indicators */
+    .status-indicator {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        margin-right: 4px;
         display: inline-block;
     }
-    /* Remove extra margin for last button */
-    .stButton:last-child > button {
-        margin-bottom: 0 !important;
+    
+    .status-active { background-color: #10b981; }
+    .status-warning { background-color: #f59e0b; }
+    .status-error { background-color: #ef4444; }
+    
+    /* Interview stage indicator */
+    .stage-indicator {
+        background: #3b82f6;
+        color: #ffffff;
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+        font-weight: 500;
+        display: inline-block;
+        margin-bottom: 0.5rem;
+        border: 1px solid #2563eb;
     }
-    /* Compact Apply Language button */
-    .stButton > button[data-testid="apply-language-btn"] {
-        min-width: 50px !important;
-        max-width: 50px !important;
-        height: 4px !important;
-        font-size: 0.68rem !important;
-        padding: 0.2rem 0.8rem !important;
-        background: #23262f !important;
-        color: #f1f1f1 !important;
-        border: 1.5px solid #8e24aa !important;
-        border-radius: 8px !important;
-        box-shadow: none !important;
-        margin-bottom: 8px !important;
-        transition: background 0.18s, color 0.18s, border 0.18s;
+    
+    /* Analytics cards */
+    .analytics-card {
+        background: #0f172a !important;
+        padding: 1rem;
+        margin: 0.5rem 0;
+        border-left: 3px solid #3b82f6;
+        border: 1px solid #334155;
+        color: #e2e8f0 !important;
     }
-    .stButton > button[data-testid="apply-language-btn"]:hover {
-        background: #8e24aa !important;
-        color: #fff !important;
-        border: 1.5px solid #8e24aa !important;
+    
+    /* Input styling */
+    .stTextInput > div > div > input {
+        background: #1e293b !important;
+        border: 1px solid #334155 !important;
+        color: #e2e8f0 !important;
+        padding: 0.5rem !important;
+        font-size: 0.875rem !important;
     }
-    /* Modern solid color for all sidebar buttons */
-    .stButton > button:not([data-testid="apply-language-btn"]) {
-        border-radius: 8px !important;
-        font-weight: 60 !important;
-        font-size: .68rem !important;
-        padding: 0.6rem 1.4rem !important;
-        margin-bottom: 12px !important;
-        background: #8e24aa !important;
-        color: #fff !important;
-        border: none !important;
-        box-shadow: 0 2px 8px rgba(142,36,170,0.10);
-        display: flex;
-        align-items: center;
-        gap: 0.7em;
-        transition: background 0.2s, box-shadow 0.2s, color 0.2s;
+    
+    .stTextInput > div > div > input:focus {
+        border-color: #3b82f6 !important;
+        background: #1e293b !important;
+        color: #e2e8f0 !important;
     }
-    .stButton > button:not([data-testid="apply-language-btn"]):hover {
-        background: #6d1b7b !important;
-        color: #fff !important;
-        box-shadow: 0 4px 16px rgba(142,36,170,0.18);
+    
+    /* Selectbox styling */
+    .stSelectbox > div > div > div {
+        background: #1e293b !important;
+        border: 1px solid #334155 !important;
+        color: #e2e8f0 !important;
+    }
+    
+    .stSelectbox label {
+        color: #e2e8f0 !important;
+    }
+    
+    /* Text and label colors - CRITICAL FIX */
+    .stMarkdown, .stText, p, span, div {
+        color: #e2e8f0 !important;
+    }
+    
+    label {
+        color: #e2e8f0 !important;
+    }
+    
+    /* Metric styling */
+    .stMetric {
+        background: #1e293b !important;
+        padding: 1rem !important;
+        border: 1px solid #334155 !important;
+    }
+    
+    .stMetric label {
+        color: #cbd5e1 !important;
+    }
+    
+    .stMetric [data-testid="metric-value"] {
+        color: #f1f5f9 !important;
+    }
+    
+    .stMetric [data-testid="metric-delta"] {
+        color: #94a3b8 !important;
+    }
+    
+    /* Expander styling */
+    .stExpander {
+        background: #1e293b !important;
+        border: 1px solid #334155 !important;
+    }
+    
+    .stExpander > div > div > div > div {
+        color: #e2e8f0 !important;
+    }
+    
+    .stExpander summary {
+        color: #f1f5f9 !important;
+    }
+    
+    /* Tab styling for dark theme */
+    .stTabs [data-baseweb="tab-list"] {
+        background: #1e293b !important;
+        border-bottom: 1px solid #334155 !important;
+    }
+    
+    .stTabs [data-baseweb="tab"] {
+        background: #0f172a !important;
+        color: #e2e8f0 !important;
+        border: 1px solid #334155 !important;
+        margin-right: 2px !important;
+    }
+    
+    .stTabs [data-baseweb="tab"]:hover {
+        background: #1e293b !important;
+        color: #f1f5f9 !important;
+    }
+    
+    .stTabs [aria-selected="true"] {
+        background: #3b82f6 !important;
+        color: #ffffff !important;
+        border-color: #2563eb !important;
+    }
+    
+    .stTabs [data-baseweb="tab-panel"] {
+        background: #0f172a !important;
+        color: #e2e8f0 !important;
+        padding: 1rem !important;
+    }
+    
+    /* Caption and small text */
+    .stCaption {
+        color: #94a3b8 !important;
+    }
+    
+    /* Success/Error messages */
+    .success-message {
+        background: #064e3b;
+        color: #6ee7b7;
+        padding: 0.75rem;
+        border-left: 3px solid #10b981;
+        margin: 0.5rem 0;
+        border: 1px solid #065f46;
+    }
+    
+    .error-message {
+        background: #7f1d1d;
+        color: #fca5a5;
+        padding: 0.75rem;
+        border-left: 3px solid #ef4444;
+        margin: 0.5rem 0;
+        border: 1px solid #991b1b;
+    }
+    
+    /* Hide Streamlit branding */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+        width: 6px;
+    }
+    
+    ::-webkit-scrollbar-track {
+        background: #1e293b;
+    }
+    
+    ::-webkit-scrollbar-thumb {
+        background: #475569;
+    }
+    
+    ::-webkit-scrollbar-thumb:hover {
+        background: #64748b;
+    }
+    
+    /* Loading animation */
+    .loading-spinner {
+        border: 2px solid #334155;
+        border-top: 2px solid #3b82f6;
+        border-radius: 50%;
+        width: 16px;
+        height: 16px;
+        animation: spin 1s linear infinite;
+        display: inline-block;
+        margin-right: 8px;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    
+    /* Fix for Streamlit elements */
+    .stApp > div {
+        background-color: #0f172a !important;
+    }
+    
+    /* Chat input styling */
+    .stChatInput > div > div > div > div {
+        background: #1e293b !important;
+        border: 1px solid #334155 !important;
+        color: #e2e8f0 !important;
+    }
+    
+    .stChatInput input {
+        background: #1e293b !important;
+        color: #e2e8f0 !important;
+    }
+    
+    /* Additional text color fixes */
+    .stDataFrame {
+        background: #1e293b !important;
+        color: #e2e8f0 !important;
+    }
+    
+    .stDataFrame table {
+        background: #1e293b !important;
+        color: #e2e8f0 !important;
+    }
+    
+    .stDataFrame th {
+        background: #334155 !important;
+        color: #f1f5f9 !important;
+    }
+    
+    .stDataFrame td {
+        background: #1e293b !important;
+        color: #e2e8f0 !important;
+    }
+    
+    /* JSON display */
+    .stJson {
+        background: #1e293b !important;
+        color: #e2e8f0 !important;
+    }
+    
+    /* Code blocks */
+    .stCode {
+        background: #1e293b !important;
+        color: #e2e8f0 !important;
+        border: 1px solid #334155 !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -611,60 +776,350 @@ def display_sidebar():
         st.caption("For support: support@talentscout.com")
         st.markdown('</div>', unsafe_allow_html=True)
 
+def display_enhanced_sidebar():
+    """Display enhanced sidebar with modern design."""
+    with st.sidebar:
+        # App title and description
+        st.markdown("""
+        <div class="sidebar-section">
+            <h3>🎯 TalentScout</h3>
+            <p style="color: #bdc3c7; font-size: 0.9rem;">
+                AI-Powered Hiring Assistant with Advanced Analytics
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Language Selection
+        st.markdown('<div class="sidebar-section">', unsafe_allow_html=True)
+        st.markdown("### 🌍 Language")
+        
+        from utils.language_manager import LanguageManager
+        lang_manager = LanguageManager()
+        supported_languages = lang_manager.get_supported_languages()
+        languages = {code: f"{info['flag']} {info['native_name']}" for code, info in supported_languages.items()}
+        
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            selected_lang = st.selectbox(
+                "Language:",
+                options=list(languages.keys()),
+                format_func=lambda x: languages[x],
+                index=list(languages.keys()).index(st.session_state.selected_language),
+                label_visibility="collapsed"
+            )
+        with col2:
+            if st.button("🌐", help="Apply Language"):
+                if selected_lang != st.session_state.selected_language:
+                    st.session_state.selected_language = selected_lang
+                    conversation_manager = st.session_state.conversation_manager
+                    conversation_manager.update_language(selected_lang)
+                    st.success("✅ Language updated!")
+                    st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        # Interview Progress
+        if "conversation_manager" in st.session_state:
+            st.markdown('<div class="sidebar-section">', unsafe_allow_html=True)
+            st.markdown("### 📊 Progress")
+            
+            cm = st.session_state.conversation_manager
+            analytics = cm.get_conversation_analytics()
+            
+            # Progress bar
+            progress = analytics['completion_percentage'] / 100
+            st.progress(progress)
+            st.caption(f"Interview {analytics['completion_percentage']:.0f}% complete")
+            
+            # Current stage
+            stage_name = analytics['stage_name'].replace('_', ' ').title()
+            st.markdown(f"**Current:** {stage_name}")
+            
+            # Message count
+            st.markdown(f"**Messages:** {analytics['conversation_length']}")
+            
+            st.markdown('</div>', unsafe_allow_html=True)
+        
+        # Quick Actions
+        st.markdown('<div class="sidebar-section">', unsafe_allow_html=True)
+        st.markdown("### ⚡ Actions")
+        
+        if st.button("📊 Toggle Analytics"):
+            st.session_state.show_analytics = not st.session_state.get('show_analytics', False)
+            st.rerun()
+        
+        if st.button("🔄 Reset Interview"):
+            if "conversation_manager" in st.session_state:
+                st.session_state.conversation_manager.reset_conversation()
+            st.session_state.messages = []
+            st.session_state.show_analytics = False
+            conversation_manager = st.session_state.conversation_manager
+            initial_message = conversation_manager.process_message("Hello")
+            st.session_state.messages.append({"role": "assistant", "content": initial_message})
+            st.rerun()
+        
+        if st.button("💾 Export Data"):
+            if "conversation_manager" in st.session_state:
+                summary = st.session_state.conversation_manager.get_candidate_summary()
+                st.download_button(
+                    label="📥 Download JSON",
+                    data=str(summary),
+                    file_name=f"candidate_data_{st.session_state.session_id[:8]}.json",
+                    mime="application/json"
+                )
+        
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        # System Status
+        st.markdown('<div class="sidebar-section">', unsafe_allow_html=True)
+        st.markdown("### 🔧 System Status")
+        
+        # Check system components
+        status_items = [
+            ("🤖 LLM Router", "active"),
+            ("🌍 Language Manager", "active"),
+            ("💭 Sentiment Analysis", "warning"),
+            ("📊 Analytics", "active"),
+            ("💾 Data Storage", "active")
+        ]
+        
+        for item, status in status_items:
+            status_color = {"active": "#2ecc71", "warning": "#f39c12", "error": "#e74c3c"}[status]
+            st.markdown(f"""
+            <div style="display: flex; align-items: center; margin: 0.5rem 0;">
+                <span class="status-indicator" style="background-color: {status_color};"></span>
+                <span style="color: #ecf0f1; font-size: 0.9rem;">{item}</span>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        # Quick Test Inputs - For Development/Testing (Collapsed by default)
+        with st.expander("🧪 Quick Test Inputs", expanded=False):
+            display_quick_test_inputs()
+        
+        # About
+        st.markdown('<div class="sidebar-section">', unsafe_allow_html=True)
+        st.markdown("### ℹ️ About")
+        st.markdown("""
+        <div style="color: #bdc3c7; font-size: 0.85rem; line-height: 1.4;">
+            <strong>Features:</strong><br>
+            • 🌍 21+ Languages<br>
+            • 🧠 Smart Data Extraction<br>
+            • 😊 Sentiment Analysis<br>
+            • 💻 Tech Stack Matching<br>
+            • 📊 Real-time Analytics<br>
+            • 🔧 Advanced Prompting
+        </div>
+        """, unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+def display_enhanced_header():
+    """Display enhanced header with modern design."""
+    st.markdown("""
+    <div class="main-header">
+        <h1>🎯 TalentScout Hiring Assistant</h1>
+        <p>AI-Powered Candidate Screening with Advanced Analytics & Multilingual Support</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+def display_interview_status():
+    """Display current interview status and progress."""
+    # Removed progress bar and stage indicator from main page
+    pass
+
+def display_enhanced_chat():
+    """Display enhanced chat interface with better styling."""
+    st.markdown('<div class="chat-container">', unsafe_allow_html=True)
+    
+    # Display interview status
+    display_interview_status()
+    
+    # Chat messages
+    for message in st.session_state.messages:
+        if message["role"] == "user":
+            with st.chat_message("user", avatar="👤"):
+                st.write(message["content"])
+        else:
+            with st.chat_message("assistant", avatar="🤖"):
+                st.write(message["content"])
+    
+    # Enhanced chat input with language indicator
+    current_lang = st.session_state.selected_language
+    from utils.language_manager import LanguageManager
+    lang_manager = LanguageManager()
+    lang_info = lang_manager.get_language_info(current_lang)
+    lang_name = lang_info['native_name'] if lang_info else current_lang.upper()
+    
+    placeholder_text = f"Type your message in {lang_name}... 💬"
+    
+    if prompt := st.chat_input(placeholder_text):
+        # Add user message to chat
+        st.session_state.messages.append({"role": "user", "content": prompt})
+        
+        # Get conversation manager
+        conversation_manager = st.session_state.conversation_manager
+        
+        # Process message with loading indicator
+        with st.spinner("🤖 TalentScout is analyzing your response..."):
+            response = conversation_manager.process_message(prompt)
+            
+            # Add bot response to chat
+            st.session_state.messages.append({"role": "assistant", "content": response})
+        
+        # Force UI refresh
+        st.rerun()
+    
+    st.markdown('</div>', unsafe_allow_html=True)
+
+def display_quick_test_inputs():
+    """Display quick test inputs for easy testing."""
+    st.markdown("### 🧪 Quick Test Inputs")
+    st.markdown("*Click any button to quickly test the chatbot:*")
+    
+    test_inputs = {
+        "👋 Start Interview": "Hello, I'd like to start the interview",
+        "📝 Provide Name": "My name is John Smith",
+        "📧 Contact Info": "My email is john.smith@example.com and phone is +1-555-123-4567",
+        "💼 Experience": "I have 5 years of experience in software development",
+        "🎯 Position": "I'm looking for a Senior Software Engineer position",
+        "📍 Location": "New York, USA",
+        "💻 Tech Stack": "I work with Python, JavaScript, React, Django, PostgreSQL, and AWS",
+        "🔧 Technical Answer": "I would use React hooks like useState and useEffect to manage component state and side effects",
+        "🌍 Spanish Test": "Hola, mi nombre es Carlos Rodriguez. Tengo 4 años de experiencia en desarrollo web",
+        "🇫🇷 French Test": "Bonjour, je m'appelle Pierre Dubois et j'ai 6 ans d'expérience en développement logiciel"
+    }
+    
+    cols = st.columns(2)
+    for i, (label, message) in enumerate(test_inputs.items()):
+        with cols[i % 2]:
+            if st.button(label, key=f"test_{i}"):
+                # Add user message
+                st.session_state.messages.append({"role": "user", "content": message})
+                
+                # Process message
+                conversation_manager = st.session_state.conversation_manager
+                response = conversation_manager.process_message(message)
+                
+                # Add bot response
+                st.session_state.messages.append({"role": "assistant", "content": response})
+                
+                st.rerun()
+
+def display_enhanced_analytics():
+    """Display enhanced analytics with better visualization."""
+    if "conversation_manager" not in st.session_state:
+        return
+    
+    cm = st.session_state.conversation_manager
+    analytics = cm.get_conversation_analytics()
+    
+    st.markdown("## 📊 Interview Analytics")
+    
+    # Key metrics using Streamlit metrics
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        stage_name = analytics['stage_name'].replace('_', ' ').title()
+        st.metric("📋 Current Stage", stage_name)
+    
+    with col2:
+        st.metric("💬 Messages", analytics['conversation_length'])
+    
+    with col3:
+        current_lang = analytics['language'].upper()
+        st.metric("🌍 Language", current_lang)
+    
+    with col4:
+        completion = analytics['completion_percentage']
+        st.metric("✅ Progress", f"{completion:.0f}%")
+    
+    # Progress bar
+    st.markdown("### 📈 Interview Progress")
+    st.progress(completion / 100)
+    
+    # Stage details
+    st.markdown("### 🔄 Stage Information")
+    stage_descriptions = {
+        'greeting': '👋 Initial greeting and introduction',
+        'name': '📝 Collecting candidate name',
+        'contact_info': '📧 Gathering contact information', 
+        'experience': '💼 Discussing work experience',
+        'position': '🎯 Understanding desired position',
+        'location': '📍 Confirming location details',
+        'tech_stack': '💻 Exploring technical skills',
+        'technical_questions': '🔧 Technical assessment',
+        'farewell': '👋 Interview conclusion',
+        'complete': '✅ Interview completed'
+    }
+    
+    current_stage_key = analytics['stage_name']
+    stage_description = stage_descriptions.get(current_stage_key, 'Unknown stage')
+    st.info(f"**Current Stage:** {stage_description}")
+    
+    # Collected information
+    if analytics.get('collected_fields'):
+        st.markdown("### 📝 Collected Information")
+        collected_info = []
+        candidate_data = cm.candidate_data
+        
+        info_mapping = {
+            'name': ('👤 Name', candidate_data.get('name')),
+            'email': ('📧 Email', candidate_data.get('email')),
+            'phone': ('📱 Phone', candidate_data.get('phone')),
+            'years_experience': ('💼 Experience', f"{candidate_data.get('years_experience')} years" if candidate_data.get('years_experience') else None),
+            'position': ('🎯 Position', candidate_data.get('position')),
+            'location': ('📍 Location', candidate_data.get('location')),
+            'tech_stack': ('💻 Tech Stack', ', '.join(candidate_data.get('tech_stack', [])) if candidate_data.get('tech_stack') else None)
+        }
+        
+        for field, (label, value) in info_mapping.items():
+            if field in analytics['collected_fields'] and value:
+                collected_info.append(f"**{label}:** {value}")
+        
+        if collected_info:
+            st.markdown('\n'.join(collected_info))
+
 def main():
-    """Main application function with enhanced features."""
+    """Enhanced main application function with modern UI."""
     try:
         # Initialize session
         init_session()
         
-        # Display sidebar
-        display_sidebar()
+        # Display enhanced header
+        display_enhanced_header()
         
-        # Main content area
-        st.markdown("<h1 style='text-align: center;'>🎯 TalentScout Hiring Assistant</h1>", unsafe_allow_html=True)
-        st.markdown("<p style='text-align: center; font-size: 18px; color: #666;'>AI-Powered Candidate Screening with Advanced Analytics</p>", unsafe_allow_html=True)
-    
-        # Main content columns
+        # Main layout
         col1, col2 = st.columns([2, 1])
         
         with col1:
-            # Chat interface
+            # Enhanced chat interface
             try:
-                display_chat()
+                display_enhanced_chat()
             except Exception as e:
-                st.error(f"Chat error: {str(e)}")
-                st.info("Please refresh the page to continue.")
+                st.error(f"💥 Chat Error: {str(e)}")
+                st.info("🔄 Please refresh the page to continue.")
         
         with col2:
-            # Analytics and Summary Panel
-            try:
-                if st.session_state.show_analytics:
-                    display_advanced_analytics()
-                
-                if "show_summary" in st.session_state and st.session_state.show_summary:
-                    display_candidate_summary()
-                
-                # Sentiment Alert
-                if "conversation_manager" in st.session_state:
-                    candidate_data = st.session_state.conversation_manager.candidate_data
-                    if ("sentiment_history" in candidate_data and 
-                        any(item.get("emotion") in ["anger", "fear", "sadness"] and item.get("score", 0) > 0.7 
-                            for item in candidate_data.get("sentiment_history", []))):
-                        st.warning("⚠️ **Candidate Alert:** Strong negative emotions detected. Consider supportive approach.")
-            except Exception as e:
-                st.warning(f"Analytics error: {str(e)}")
+            # Enhanced sidebar content
+            display_enhanced_sidebar()
+            
+
+            # Analytics
+            if st.session_state.get('show_analytics', False):
+                with st.expander("📊 Analytics", expanded=True):
+                    display_enhanced_analytics()
         
-        # Full-width analytics (when enabled)
-        if st.session_state.show_analytics:
-            st.markdown("---")
-            try:
-                display_advanced_analytics()
-            except Exception as e:
-                st.warning(f"Full analytics error: {str(e)}")
+        # Footer
+        st.markdown("---")
+        st.markdown("""
+        <div style="text-align: center; color: #666; font-size: 0.9rem; padding: 1rem;">
+            🚀 TalentScout Hiring Assistant v2.0 | Built with Streamlit & Advanced AI
+        </div>
+        """, unsafe_allow_html=True)
                 
     except Exception as e:
-        st.error(f"Application error: {str(e)}")
-        st.info("Please refresh the page to restart the application.")
+        st.error(f"💥 Application Error: {str(e)}")
+        st.info("🔄 Please refresh the page to restart the application.")
         st.stop()
 
 if __name__ == "__main__":

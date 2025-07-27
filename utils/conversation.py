@@ -131,19 +131,36 @@ class ConversationManager:
         if any(keyword in user_message.lower() for keyword in self.EXIT_KEYWORDS):
             return self._handle_exit()
         
-        # Detect language if not already set
-        if self.current_language == "en" and len(self.history) < 3:
-            detected_language = self.language_manager.detect_language(user_message)
-            if detected_language != "en":
-                self.current_language = detected_language
-                self.candidate_data["language"] = detected_language
-                self.language_manager.update_language_preference(self.session_id, detected_language)
+        # Enhanced language detection and switching
+        language_switch_message = ""
+        new_language, switched, switch_message = self.language_manager.auto_switch_language(
+            user_message, self.current_language, self.session_id
+        )
+        
+        if switched:
+            # Language was automatically switched
+            self.current_language = new_language
+            self.candidate_data["language"] = new_language
+            language_switch_message = switch_message
+            
+            # Preserve conversation context across language switch
+            self.history = self.llm_router.preserve_context_across_languages(
+                self.history, new_language
+            )
+        elif switch_message:
+            # Language switch suggestion (medium confidence)
+            # Store the suggestion for potential confirmation
+            self.candidate_data["language_suggestion"] = {
+                "suggested_language": new_language,
+                "message": switch_message,
+                "timestamp": time.time()
+            }
         
         # Update conversation history
         self._update_history("user", user_message)
         
-        # Extract information from user message
-        self._extract_info(user_message)
+        # Extract information from user message with language context
+        self._extract_multilingual_info(user_message)
         
         # Analyze sentiment if available
         if self.sentiment_analysis_enabled:
@@ -153,11 +170,16 @@ class ConversationManager:
             self.candidate_data["sentiment_history"].append({
                 "message": user_message,
                 "emotion": sentiment[0],
-                "score": sentiment[1]
+                "score": sentiment[1],
+                "language": self.current_language
             })
         
         # Generate response based on current stage
         response = self._generate_response(user_message)
+        
+        # Add language switch message if needed
+        if language_switch_message:
+            response = f"{language_switch_message}\n\n{response}"
         
         # Update conversation history with response
         self._update_history("assistant", response)
@@ -179,24 +201,375 @@ class ConversationManager:
     
     def _extract_info(self, message: str) -> None:
         """
-        Extract candidate information from message.
+        Extract candidate information from message (legacy method for backward compatibility).
         
         Args:
             message: User message to extract info from
         """
-        # Extract name if in name stage
-        if self.stage == self.STAGES["name"] and "name" not in self.candidate_data:
-            name_match = re.search(r"my name is\s+([A-Za-z\s]+)", message, re.IGNORECASE)
-            if name_match:
-                self.candidate_data["name"] = name_match.group(1).strip()
-            elif len(message.split()) <= 5:  # Short message likely containing just the name
-                self.candidate_data["name"] = message.strip()
+        # Use the enhanced multilingual extraction method
+        self._extract_multilingual_info(message)
+    
+    def _extract_multilingual_info(self, message: str) -> None:
+        """
+        Enhanced information extraction with better pattern matching and validation.
         
-        # Extract email if in contact info stage
+        Args:
+            message: User message to extract info from
+        """
+        # Extract name with improved patterns
+        if self.stage == self.STAGES["name"] and "name" not in self.candidate_data:
+            extracted_name = self._extract_name(message)
+            if extracted_name:
+                self.candidate_data["name"] = extracted_name
+        
+        # Extract email with validation
         if self.stage == self.STAGES["contact_info"] and "email" not in self.candidate_data:
-            email_match = re.search(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b", message)
-            if email_match:
-                self.candidate_data["email"] = email_match.group(0)
+            extracted_email = self._extract_email(message)
+            if extracted_email:
+                self.candidate_data["email"] = extracted_email
+        
+        # Extract phone with international format support
+        if self.stage == self.STAGES["contact_info"] and "phone" not in self.candidate_data:
+            extracted_phone = self._extract_phone(message)
+            if extracted_phone:
+                self.candidate_data["phone"] = extracted_phone
+        
+        # Extract years of experience with better parsing
+        if self.stage == self.STAGES["experience"] and "years_experience" not in self.candidate_data:
+            extracted_experience = self._extract_experience(message)
+            if extracted_experience is not None:
+                self.candidate_data["years_experience"] = extracted_experience
+        
+        # Extract position with better matching
+        if self.stage == self.STAGES["position"] and "position" not in self.candidate_data:
+            extracted_position = self._extract_position(message)
+            if extracted_position:
+                self.candidate_data["position"] = extracted_position
+        
+        # Extract location with better parsing
+        if self.stage == self.STAGES["location"] and "location" not in self.candidate_data:
+            extracted_location = self._extract_location(message)
+            if extracted_location:
+                self.candidate_data["location"] = extracted_location
+        
+        # Extract tech stack with comprehensive matching
+        if self.stage == self.STAGES["tech_stack"] and "tech_stack" not in self.candidate_data:
+            extracted_tech_stack = self._extract_tech_stack(message)
+            if extracted_tech_stack:
+                self.candidate_data["tech_stack"] = extracted_tech_stack
+    
+    def _extract_name(self, message: str) -> Optional[str]:
+        """Extract name from message with improved patterns."""
+        # Language-specific patterns
+        name_patterns = {
+            "en": [
+                r"my name is\s+([A-Za-z\s\-'\.]+)",
+                r"i am\s+([A-Za-z\s\-'\.]+)",
+                r"i'm\s+([A-Za-z\s\-'\.]+)",
+                r"call me\s+([A-Za-z\s\-'\.]+)"
+            ],
+            "es": [
+                r"mi nombre es\s+([A-Za-z\s\-'\.]+)",
+                r"me llamo\s+([A-Za-z\s\-'\.]+)",
+                r"soy\s+([A-Za-z\s\-'\.]+)"
+            ],
+            "fr": [
+                r"je m'appelle\s+([A-Za-z\s\-'\.]+)",
+                r"mon nom est\s+([A-Za-z\s\-'\.]+)",
+                r"je suis\s+([A-Za-z\s\-'\.]+)"
+            ]
+        }
+        
+        patterns = name_patterns.get(self.current_language, name_patterns["en"])
+        
+        # Try pattern matching first
+        for pattern in patterns:
+            match = re.search(pattern, message, re.IGNORECASE)
+            if match:
+                name = match.group(1).strip()
+                if self._validate_name(name):
+                    return name
+        
+        # Fallback: if message is short and looks like a name
+        if len(message.split()) <= 4:
+            clean_name = re.sub(r'[^\w\s\-\']', '', message).strip()
+            if self._validate_name(clean_name):
+                return clean_name
+        
+        return None
+    
+    def _extract_email(self, message: str) -> Optional[str]:
+        """Extract email with comprehensive validation."""
+        email_pattern = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
+        match = re.search(email_pattern, message)
+        
+        if match:
+            email = match.group(0)
+            # Additional validation
+            if self._validate_email(email):
+                return email
+        
+        return None
+    
+    def _extract_phone(self, message: str) -> Optional[str]:
+        """Extract phone number with international format support."""
+        # Comprehensive phone patterns
+        phone_patterns = [
+            r'\+\d{1,4}[-.\s]?\(?\d{1,4}\)?[-.\s]?\d{1,4}[-.\s]?\d{1,4}[-.\s]?\d{1,9}',  # International
+            r'\(\d{3}\)\s?\d{3}[-.\s]?\d{4}',  # US format (555) 123-4567
+            r'\d{3}[-.\s]?\d{3}[-.\s]?\d{4}',  # US format 555-123-4567
+            r'\d{10,15}'  # Simple digit sequence
+        ]
+        
+        for pattern in phone_patterns:
+            match = re.search(pattern, message)
+            if match:
+                phone = match.group(0)
+                if self._validate_phone(phone):
+                    return phone
+        
+        return None
+    
+    def _extract_experience(self, message: str) -> Optional[int]:
+        """Extract years of experience with better parsing."""
+        # Multiple patterns for experience
+        experience_patterns = [
+            r'(\d+(?:\.\d+)?)\s*(?:years?|yrs?)\s*(?:of\s*)?(?:experience|exp)',
+            r'(\d+(?:\.\d+)?)\s*(?:years?|yrs?)',
+            r'(\d+(?:\.\d+)?)\s*(?:year|yr)\s*(?:experience|exp)',
+            r'experience.*?(\d+(?:\.\d+)?)\s*(?:years?|yrs?)',
+            r'(\d+(?:\.\d+)?)\s*(?:años?|ans?)',  # Spanish/French
+        ]
+        
+        for pattern in experience_patterns:
+            match = re.search(pattern, message, re.IGNORECASE)
+            if match:
+                try:
+                    years = float(match.group(1))
+                    if 0 <= years <= 50:  # Reasonable range
+                        return int(years) if years == int(years) else years
+                except ValueError:
+                    continue
+        
+        return None
+    
+    def _extract_position(self, message: str) -> Optional[str]:
+        """Extract position with better matching."""
+        # Common tech positions
+        tech_positions = [
+            'software engineer', 'software developer', 'web developer', 'frontend developer',
+            'backend developer', 'full stack developer', 'mobile developer', 'data scientist',
+            'data analyst', 'data engineer', 'machine learning engineer', 'ai engineer',
+            'devops engineer', 'cloud engineer', 'security engineer', 'qa engineer',
+            'test engineer', 'product manager', 'technical lead', 'team lead',
+            'senior developer', 'junior developer', 'principal engineer', 'architect',
+            'ui/ux designer', 'designer', 'scrum master', 'project manager'
+        ]
+        
+        message_lower = message.lower()
+        
+        # Look for exact matches first
+        for position in tech_positions:
+            if position in message_lower:
+                return position.title()
+        
+        # Look for partial matches with common prefixes/suffixes
+        position_keywords = ['developer', 'engineer', 'analyst', 'scientist', 'manager', 'lead', 'architect']
+        for keyword in position_keywords:
+            if keyword in message_lower:
+                # Extract surrounding context
+                pattern = rf'\b\w*\s*{keyword}\b'
+                match = re.search(pattern, message_lower)
+                if match:
+                    return match.group(0).strip().title()
+        
+        # Fallback: use the whole message if it's short and reasonable
+        if len(message.split()) <= 5 and len(message.strip()) > 2:
+            return message.strip().title()
+        
+        return None
+    
+    def _extract_location(self, message: str) -> Optional[str]:
+        """Extract location with enhanced support for Indian states and cities."""
+        # Clean the message
+        clean_message = message.strip()
+        
+        # Indian states and major cities for better recognition
+        indian_states = [
+            'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh', 'Goa', 
+            'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jharkhand', 'Karnataka', 'Kerala', 
+            'Madhya Pradesh', 'Maharashtra', 'Manipur', 'Meghalaya', 'Mizoram', 'Nagaland', 
+            'Odisha', 'Punjab', 'Rajasthan', 'Sikkim', 'Tamil Nadu', 'Telangana', 'Tripura', 
+            'Uttar Pradesh', 'Uttarakhand', 'West Bengal', 'Delhi', 'Jammu and Kashmir', 
+            'Ladakh', 'Puducherry', 'Chandigarh', 'Dadra and Nagar Haveli', 'Daman and Diu',
+            'Lakshadweep', 'Andaman and Nicobar Islands'
+        ]
+        
+        indian_cities = [
+            'Mumbai', 'Delhi', 'Bangalore', 'Bengaluru', 'Hyderabad', 'Chennai', 'Kolkata', 
+            'Pune', 'Ahmedabad', 'Surat', 'Jaipur', 'Lucknow', 'Kanpur', 'Nagpur', 'Indore', 
+            'Thane', 'Bhopal', 'Visakhapatnam', 'Pimpri-Chinchwad', 'Patna', 'Vadodara', 
+            'Ghaziabad', 'Ludhiana', 'Agra', 'Nashik', 'Faridabad', 'Meerut', 'Rajkot', 
+            'Kalyan-Dombivali', 'Vasai-Virar', 'Varanasi', 'Srinagar', 'Aurangabad', 
+            'Dhanbad', 'Amritsar', 'Navi Mumbai', 'Allahabad', 'Prayagraj', 'Ranchi', 
+            'Howrah', 'Coimbatore', 'Jabalpur', 'Gwalior', 'Vijayawada', 'Jodhpur', 
+            'Madurai', 'Raipur', 'Kota', 'Chandigarh', 'Guwahati', 'Solapur', 'Hubli-Dharwad',
+            'Bareilly', 'Moradabad', 'Mysore', 'Mysuru', 'Gurgaon', 'Gurugram', 'Aligarh', 
+            'Jalandhar', 'Tiruchirappalli', 'Bhubaneswar', 'Salem', 'Warangal', 'Guntur', 
+            'Bhiwandi', 'Saharanpur', 'Gorakhpur', 'Bikaner', 'Amravati', 'Noida', 'Jamshedpur',
+            'Bhilai', 'Cuttack', 'Firozabad', 'Kochi', 'Ernakulam', 'Bhavnagar', 'Dehradun',
+            'Durgapur', 'Asansol', 'Rourkela', 'Nanded', 'Kolhapur', 'Ajmer', 'Akola',
+            'Gulbarga', 'Jamnagar', 'Ujjain', 'Loni', 'Siliguri', 'Jhansi', 'Ulhasnagar',
+            'Nellore', 'Jammu', 'Sangli-Miraj & Kupwad', 'Belgaum', 'Mangalore', 'Ambattur',
+            'Tirunelveli', 'Malegaon', 'Gaya', 'Jalgaon', 'Udaipur', 'Maheshtala'
+        ]
+        
+        # Check for Indian locations first
+        message_lower = clean_message.lower()
+        
+        # Check for Indian states
+        for state in indian_states:
+            if state.lower() in message_lower:
+                # Look for city, state pattern
+                city_state_pattern = rf'([A-Za-z\s]+),\s*{re.escape(state)}'
+                match = re.search(city_state_pattern, clean_message, re.IGNORECASE)
+                if match:
+                    return f"{match.group(1).strip()}, {state}, India"
+                else:
+                    return f"{state}, India"
+        
+        # Check for Indian cities
+        for city in indian_cities:
+            if city.lower() in message_lower:
+                # Try to find state context
+                for state in indian_states:
+                    if state.lower() in message_lower:
+                        return f"{city}, {state}, India"
+                # If no state found, just return city with India
+                return f"{city}, India"
+        
+        # Check for "India" keyword
+        if 'india' in message_lower or 'indian' in message_lower:
+            # Extract city/state before India
+            india_pattern = r'([A-Za-z\s]+)(?:,\s*)?(?:india|indian)'
+            match = re.search(india_pattern, clean_message, re.IGNORECASE)
+            if match:
+                location_part = match.group(1).strip().rstrip(',')
+                return f"{location_part}, India"
+        
+        # General location patterns
+        location_patterns = [
+            r'([A-Za-z\s]+),\s*([A-Za-z\s]+)(?:,\s*([A-Za-z\s]+))?',  # City, State, Country
+            r'([A-Za-z\s]{2,})'  # Simple location name
+        ]
+        
+        for pattern in location_patterns:
+            match = re.search(pattern, clean_message)
+            if match:
+                location = match.group(0).strip()
+                if self._validate_location(location):
+                    return location
+        
+        return None
+    
+    def _extract_tech_stack(self, message: str) -> Optional[List[str]]:
+        """Extract tech stack with comprehensive matching."""
+        # Get all known technologies from config
+        all_technologies = []
+        for category, techs in config.TECH_CATEGORIES.items():
+            all_technologies.extend(techs)
+        
+        # Additional common technologies not in config
+        additional_techs = [
+            'HTML', 'CSS', 'SASS', 'SCSS', 'TypeScript', 'GraphQL', 'REST API',
+            'Microservices', 'Agile', 'Scrum', 'TDD', 'CI/CD', 'DevOps',
+            'Machine Learning', 'Deep Learning', 'AI', 'Blockchain'
+        ]
+        all_technologies.extend(additional_techs)
+        
+        found_technologies = []
+        message_lower = message.lower()
+        
+        # Look for exact matches (case-insensitive)
+        for tech in all_technologies:
+            if re.search(rf'\b{re.escape(tech.lower())}\b', message_lower):
+                found_technologies.append(tech)
+        
+        # Look for common variations and abbreviations
+        tech_variations = {
+            'js': 'JavaScript',
+            'ts': 'TypeScript',
+            'py': 'Python',
+            'react.js': 'React',
+            'vue.js': 'Vue.js',
+            'node.js': 'Node.js',
+            'express.js': 'Express.js'
+        }
+        
+        for variation, full_name in tech_variations.items():
+            if re.search(rf'\b{re.escape(variation)}\b', message_lower):
+                if full_name not in found_technologies:
+                    found_technologies.append(full_name)
+        
+        return found_technologies if found_technologies else None
+    
+    def _validate_name(self, name: str) -> bool:
+        """Validate name format."""
+        if not name or len(name.strip()) < 2:
+            return False
+        
+        # Check for reasonable name pattern
+        name_pattern = r'^[A-Za-z\s\-\'\.]{2,50}$'
+        if not re.match(name_pattern, name):
+            return False
+        
+        # Should have 1-4 words
+        words = name.split()
+        return 1 <= len(words) <= 4
+    
+    def _validate_email(self, email: str) -> bool:
+        """Validate email format."""
+        if not email or len(email) > 254:
+            return False
+        
+        # More comprehensive email validation
+        email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        return bool(re.match(email_pattern, email))
+    
+    def _validate_phone(self, phone: str) -> bool:
+        """Validate phone number."""
+        if not phone:
+            return False
+        
+        # Remove all non-digit characters for length check
+        digits_only = re.sub(r'\D', '', phone)
+        return 7 <= len(digits_only) <= 15
+    
+    def _validate_location(self, location: str) -> bool:
+        """Validate location format with enhanced support for Indian locations."""
+        if not location or len(location.strip()) < 2:
+            return False
+        
+        # Should be reasonable length and contain letters
+        if len(location) > 100 or not re.search(r'[A-Za-z]', location):
+            return False
+        
+        # Additional validation for common location patterns
+        location_lower = location.lower()
+        
+        # Valid if contains common location indicators
+        location_indicators = [
+            'city', 'state', 'country', 'india', 'usa', 'uk', 'canada', 'australia',
+            'mumbai', 'delhi', 'bangalore', 'hyderabad', 'chennai', 'kolkata', 'pune',
+            'new york', 'london', 'toronto', 'sydney', 'singapore', 'dubai'
+        ]
+        
+        # Check for valid location patterns
+        has_location_indicator = any(indicator in location_lower for indicator in location_indicators)
+        has_comma_separation = ',' in location  # City, State or City, Country format
+        is_reasonable_length = 2 <= len(location.split()) <= 6  # Reasonable word count
+        
+        return has_location_indicator or has_comma_separation or is_reasonable_length
         
         # Name validation (2-4 alphabetic names)
         if self.stage == self.STAGES["name"] and "name" not in self.candidate_data:
@@ -257,55 +630,74 @@ class ConversationManager:
     
     def _generate_response(self, user_message: str) -> str:
         """
-        Generate response based on current conversation stage.
+        Generate response based on current conversation stage with multilingual support.
         
         Args:
             user_message: User's message
             
         Returns:
-            Response message
+            Response message in the appropriate language
         """
         # Check if we need to advance to the next stage
         self.stage = self._determine_current_stage()
         
         # Handle different conversation stages
-        if self.stage == self.STAGES["greeting"]:
-            response = self._handle_greeting()
-            self.stage = self.STAGES["name"]
+        try:
+            if self.stage == self.STAGES["greeting"]:
+                response = self._handle_greeting()
+                self.stage = self.STAGES["name"]
+            
+            elif self.stage == self.STAGES["name"]:
+                response = self._handle_name_collection(user_message)
+            
+            elif self.stage == self.STAGES["contact_info"]:
+                response = self._handle_contact_collection(user_message)
+            
+            elif self.stage == self.STAGES["experience"]:
+                response = self._handle_experience_collection(user_message)
+            
+            elif self.stage == self.STAGES["position"]:
+                response = self._handle_position_collection(user_message)
+            
+            elif self.stage == self.STAGES["location"]:
+                response = self._handle_location_collection(user_message)
+            
+            elif self.stage == self.STAGES["tech_stack"]:
+                response = self._handle_tech_stack_collection(user_message)
+            
+            elif self.stage == self.STAGES["technical_questions"]:
+                response = self._handle_technical_questions(user_message)
+            
+            elif self.stage == self.STAGES["farewell"]:
+                response = self._handle_farewell()
+                self.candidate_data["conversation_complete"] = True
+                self.stage = self.STAGES["complete"]
+            
+            else:  # Complete or unknown stage
+                response = self._get_completion_message()
+            
+            return response
+            
+        except Exception as e:
+            # Handle errors gracefully with multilingual error messages
+            return self._handle_language_error(e)
+    
+    def _get_completion_message(self) -> str:
+        """Get completion message in the appropriate language."""
+        completion_messages = {
+            "en": "Thank you for completing the initial interview process. The TalentScout team will be in touch if your profile matches their requirements.",
+            "es": "Gracias por completar el proceso de entrevista inicial. El equipo de TalentScout se pondrá en contacto si su perfil coincide con nuestros requisitos.",
+            "fr": "Merci d'avoir terminé le processus d'entretien initial. L'équipe TalentScout vous contactera si votre profil correspond à nos exigences.",
+            "de": "Vielen Dank für die Teilnahme am ersten Vorstellungsgespräch. Das TalentScout-Team wird sich melden, wenn Ihr Profil unseren Anforderungen entspricht.",
+            "it": "Grazie per aver completato il processo di colloquio iniziale. Il team TalentScout ti contatterà se il tuo profilo corrisponde ai nostri requisiti.",
+            "pt": "Obrigado por completar o processo de entrevista inicial. A equipe TalentScout entrará em contato se seu perfil corresponder aos nossos requisitos.",
+            "hi": "प्रारंभिक साक्षात्कार प्रक्रिया पूरी करने के लिए धन्यवाद। यदि आपकी प्रोफ़ाइल हमारी आवश्यकताओं से मेल खाती है तो TalentScout टीम संपर्क करेगी।"
+        }
         
-        elif self.stage == self.STAGES["name"]:
-            response = self._handle_name_collection(user_message)
-        
-        elif self.stage == self.STAGES["contact_info"]:
-            response = self._handle_contact_collection(user_message)
-        
-        elif self.stage == self.STAGES["experience"]:
-            response = self._handle_experience_collection(user_message)
-        
-        elif self.stage == self.STAGES["position"]:
-            response = self._handle_position_collection(user_message)
-        
-        elif self.stage == self.STAGES["location"]:
-            response = self._handle_location_collection(user_message)
-        
-        elif self.stage == self.STAGES["tech_stack"]:
-            response = self._handle_tech_stack_collection(user_message)
-        
-        elif self.stage == self.STAGES["technical_questions"]:
-            response = self._handle_technical_questions(user_message)
-        
-        elif self.stage == self.STAGES["farewell"]:
-            response = self._handle_farewell()
-            self.candidate_data["conversation_complete"] = True
-            self.stage = self.STAGES["complete"]
-        
-        else:  # Complete or unknown stage
-            response = "Thank you for completing the initial interview process. The TalentScout team will be in touch if your profile matches their requirements."
-        
-        return response
+        return completion_messages.get(self.current_language, completion_messages["en"])
     
     def _handle_greeting(self) -> str:
-        """Handle the greeting stage."""
+        """Handle the greeting stage with cultural adaptation."""
         # Check for cached response first
         cache_key = self.performance_manager.generate_cache_key("greeting", {
             "language": self.current_language,
@@ -316,39 +708,67 @@ class ConversationManager:
         if cached_response:
             return cached_response
         
-        # Get personalized greeting
-        if self.current_language != "en":
-            response = self.language_manager.get_localized_greeting(self.current_language)
-        else:
-            response = self.personalization_manager.get_personalized_greeting(self.user_id, self.current_language)
+        # Get base localized greeting
+        base_greeting = self.language_manager.get_localized_greeting(self.current_language)
+        
+        # Adapt greeting for cultural context
+        culturally_adapted_greeting = self.language_manager.adapt_greeting_for_culture(
+            self.current_language, base_greeting
+        )
         
         # Cache the response
-        self.performance_manager.cache_response(cache_key, response)
+        self.performance_manager.cache_response(cache_key, culturally_adapted_greeting)
         
-        return response
+        return culturally_adapted_greeting
     
     def _handle_name_collection(self, user_message: str) -> str:
-        """Handle the name collection stage."""
+        """Handle the name collection stage with enhanced prompts."""
         if "name" in self.candidate_data:
-            # Name already collected, move to next stage
+            # Name collected successfully, transition to next stage
             self.stage = self.STAGES["contact_info"]
-            known_info = f"Name: {self.candidate_data['name']}"
-            prompt = self.prompt_manager.get_prompt("candidate_info", 
-                known_info=known_info,
+            
+            # Use transition prompt for smooth flow
+            transition_prompt = self.prompt_manager.get_prompt("transition",
+                completed_stage="name collection",
+                next_stage="contact information",
+                collected_info=f"Name: {self.candidate_data['name']}"
+            )
+            
+            # Then ask for contact info
+            info_prompt = self.prompt_manager.get_prompt("candidate_info",
+                known_info=f"Name: {self.candidate_data['name']}",
                 next_info="email address and phone number"
             )
+            
+            combined_prompt = f"{transition_prompt}\n\n{info_prompt}"
+            
         else:
-            # Still need to collect name
-            prompt = self.prompt_manager.get_prompt("candidate_info",
-                known_info="No information collected yet.",
-                next_info="name"
-            )
+            # Still need to collect name - check if validation is needed
+            if user_message and len(user_message.strip()) > 0:
+                # User provided something, but extraction failed - use validation prompt
+                validation_prompt = self.prompt_manager.get_prompt("validation",
+                    field_name="name",
+                    provided_value=user_message,
+                    validation_error="Name format is invalid",
+                    expected_format="2-4 alphabetic words with proper capitalization (e.g., 'John Smith')"
+                )
+                combined_prompt = validation_prompt
+            else:
+                # Initial request for name
+                combined_prompt = self.prompt_manager.get_prompt("candidate_info",
+                    known_info="Starting interview process.",
+                    next_info="full name"
+                )
         
-        response = self.llm_router.get_response(prompt)
+        # Use enhanced LLM routing
+        context = {"conversation_history": self.history}
+        response = self.llm_router.get_multilingual_response(
+            combined_prompt, self.current_language, context, "name"
+        )
         return response
     
     def _handle_contact_collection(self, user_message: str) -> str:
-        """Handle the contact information collection stage."""
+        """Handle the contact information collection stage with multilingual support."""
         known_info = f"Name: {self.candidate_data.get('name', 'Not provided')}"
         
         if "email" in self.candidate_data:
@@ -378,11 +798,15 @@ class ConversationManager:
                 next_info=" and ".join(missing)
             )
         
-        response = self.llm_router.get_response(prompt)
+        # Use multilingual LLM routing
+        context = {"conversation_history": self.history}
+        response = self.llm_router.get_multilingual_response(
+            prompt, self.current_language, context, "contact_info"
+        )
         return response
     
     def _handle_experience_collection(self, user_message: str) -> str:
-        """Handle the experience collection stage."""
+        """Handle the experience collection stage with multilingual support."""
         known_info = f"Name: {self.candidate_data.get('name', 'Not provided')}\n"
         known_info += f"Email: {self.candidate_data.get('email', 'Not provided')}\n"
         known_info += f"Phone: {self.candidate_data.get('phone', 'Not provided')}"
@@ -402,7 +826,11 @@ class ConversationManager:
                 next_info="years of experience in the industry"
             )
         
-        response = self.llm_router.get_response(prompt)
+        # Use multilingual LLM routing
+        context = {"conversation_history": self.history}
+        response = self.llm_router.get_multilingual_response(
+            prompt, self.current_language, context, "experience"
+        )
         return response
     
     def _handle_position_collection(self, user_message: str) -> str:
@@ -454,74 +882,136 @@ class ConversationManager:
         return response
     
     def _handle_tech_stack_collection(self, user_message: str) -> str:
-        """Handle the tech stack collection stage."""
-        known_info = f"Name: {self.candidate_data.get('name', 'Not provided')}\n"
-        known_info += f"Email: {self.candidate_data.get('email', 'Not provided')}\n"
-        known_info += f"Phone: {self.candidate_data.get('phone', 'Not provided')}\n"
-        known_info += f"Years of Experience: {self.candidate_data.get('years_experience', 'Not provided')}\n"
-        known_info += f"Desired Position: {self.candidate_data.get('position', 'Not provided')}\n"
-        known_info += f"Location: {self.candidate_data.get('location', 'Not provided')}"
+        """Handle the tech stack collection stage with enhanced extraction."""
+        # Build comprehensive candidate context
+        known_info = self._build_candidate_context()
         
-        # First, try to extract tech stack from the message using regex patterns
+        # Use enhanced tech stack extraction
         if "tech_stack" not in self.candidate_data:
-            tech_stack = []
-            all_technologies = []
-            
-            # Combine all technologies from the configuration
-            for category, techs in config.TECH_CATEGORIES.items():
-                all_technologies.extend(techs)
-            
-            # Look for matches in the message
-            for tech in all_technologies:
-                if re.search(r"\b" + re.escape(tech) + r"\b", user_message, re.IGNORECASE):
-                    tech_stack.append(tech)
-            
-            # If we found technologies, save them
-            if tech_stack:
-                self.candidate_data["tech_stack"] = tech_stack
+            extracted_tech_stack = self._extract_tech_stack(user_message)
+            if extracted_tech_stack:
+                self.candidate_data["tech_stack"] = extracted_tech_stack
         
-        # If still no tech stack, try LLM extraction (but only once to prevent loops)
-        if "tech_stack" not in self.candidate_data and "tech_extraction_attempted" not in self.candidate_data:
-            self.candidate_data["tech_extraction_attempted"] = True
-            
-            # Use LLM to extract tech stack
-            prompt = f"""
-            Based on the following message, identify the technologies, programming languages, frameworks, 
-            databases, and tools mentioned. Return ONLY a comma-separated list of technologies.
-            
-            Message: {user_message}
-            """
-            tech_stack_response = self.llm_router.get_response(prompt, use_case="general")
-            
-            # Parse the response into a list
-            techs = [tech.strip() for tech in tech_stack_response.split(',') if tech.strip()]
-            if techs:
-                self.candidate_data["tech_stack"] = techs
-            
-        # If we have tech stack, move to technical questions
+        # If we have tech stack, transition to technical questions
         if "tech_stack" in self.candidate_data and self.candidate_data["tech_stack"]:
-            # Move to technical questions
-            known_info += "\nTech Stack: " + ", ".join(self.candidate_data["tech_stack"])
+            # Update known info with tech stack
+            known_info += f"\nTech Stack: {', '.join(self.candidate_data['tech_stack'])}"
+            
+            # Use transition prompt
+            transition_prompt = self.prompt_manager.get_prompt("transition",
+                completed_stage="technical skills collection",
+                next_stage="technical assessment",
+                collected_info=f"Tech Stack: {', '.join(self.candidate_data['tech_stack'])}"
+            )
+            
+            # Move to technical questions stage
             self.stage = self.STAGES["technical_questions"]
             
-            # Generate technical questions
+            # Generate technical questions using enhanced method
             self._generate_technical_questions()
             
-            # Create response with first question
+            # Create comprehensive response
             if self.technical_questions:
-                response = f"Thank you for sharing your technical background. Now, I'd like to ask you a few technical questions based on your skills.\n\nHere's the first question:\n\n{self.technical_questions[0]}"
+                tech_summary = self._create_tech_stack_summary()
+                first_question = self.technical_questions[0]
                 
-                # Initialize technical answers array
+                response = f"{transition_prompt}\n\n{tech_summary}\n\nLet's start with the first technical question:\n\n{first_question}"
+                
+                # Initialize technical answers
                 self.candidate_data["technical_answers"] = []
                 
                 return response
         
-        # If we still don't have tech stack, ask for it directly
+        # If no tech stack extracted, use enhanced prompting
         if "tech_stack" not in self.candidate_data:
-            return "Could you please tell me what technologies, programming languages, frameworks, and tools you're proficient in? For example: Python, JavaScript, React, PostgreSQL, AWS, etc."
+            if user_message and len(user_message.strip()) > 0:
+                # User provided something but extraction failed
+                prompt = self.prompt_manager.get_prompt("tech_stack", known_info=known_info)
+                fallback_prompt = f"""
+                I couldn't identify specific technologies from your response. {prompt}
+                
+                Please list your technical skills more specifically. For example:
+                - Programming Languages: Python, JavaScript, Java
+                - Frameworks: React, Django, Spring
+                - Databases: PostgreSQL, MongoDB
+                - Cloud: AWS, Azure
+                - Tools: Git, Docker, Jenkins
+                """
+                
+                context = {"conversation_history": self.history}
+                return self.llm_router.get_multilingual_response(
+                    fallback_prompt, self.current_language, context, "tech_stack"
+                )
+            else:
+                # Initial tech stack request
+                prompt = self.prompt_manager.get_prompt("tech_stack", known_info=known_info)
+                context = {"conversation_history": self.history}
+                return self.llm_router.get_multilingual_response(
+                    prompt, self.current_language, context, "tech_stack"
+                )
         
         # Fallback response
         return "Thank you for the information. Let me ask you some technical questions now."
+    
+    def _build_candidate_context(self) -> str:
+        """Build comprehensive candidate context string."""
+        context_parts = []
+        
+        if "name" in self.candidate_data:
+            context_parts.append(f"Name: {self.candidate_data['name']}")
+        if "email" in self.candidate_data:
+            context_parts.append(f"Email: {self.candidate_data['email']}")
+        if "phone" in self.candidate_data:
+            context_parts.append(f"Phone: {self.candidate_data['phone']}")
+        if "years_experience" in self.candidate_data:
+            context_parts.append(f"Experience: {self.candidate_data['years_experience']} years")
+        if "position" in self.candidate_data:
+            context_parts.append(f"Desired Position: {self.candidate_data['position']}")
+        if "location" in self.candidate_data:
+            context_parts.append(f"Location: {self.candidate_data['location']}")
+        
+        return "\n".join(context_parts) if context_parts else "No information collected yet."
+    
+    def _create_tech_stack_summary(self) -> str:
+        """Create a summary of the candidate's tech stack."""
+        if "tech_stack" not in self.candidate_data:
+            return ""
+        
+        tech_stack = self.candidate_data["tech_stack"]
+        
+        # Categorize technologies
+        categories = {
+            "Programming Languages": [],
+            "Frameworks": [],
+            "Databases": [],
+            "Cloud/DevOps": [],
+            "Tools": []
+        }
+        
+        # Simple categorization based on known technologies
+        for tech in tech_stack:
+            tech_lower = tech.lower()
+            if any(lang in tech_lower for lang in ['python', 'javascript', 'java', 'c#', 'go', 'ruby', 'php']):
+                categories["Programming Languages"].append(tech)
+            elif any(fw in tech_lower for fw in ['react', 'angular', 'vue', 'django', 'flask', 'spring']):
+                categories["Frameworks"].append(tech)
+            elif any(db in tech_lower for db in ['mysql', 'postgresql', 'mongodb', 'redis', 'oracle']):
+                categories["Databases"].append(tech)
+            elif any(cloud in tech_lower for cloud in ['aws', 'azure', 'gcp', 'docker', 'kubernetes']):
+                categories["Cloud/DevOps"].append(tech)
+            else:
+                categories["Tools"].append(tech)
+        
+        # Build summary
+        summary_parts = []
+        for category, techs in categories.items():
+            if techs:
+                summary_parts.append(f"{category}: {', '.join(techs)}")
+        
+        if summary_parts:
+            return f"Great! I've identified your technical skills:\n" + "\n".join(f"• {part}" for part in summary_parts)
+        else:
+            return f"I've noted your technical skills: {', '.join(tech_stack)}"
     
     def _handle_technical_questions(self, user_message: str) -> str:
         """Handle the technical questions stage."""
@@ -761,3 +1251,139 @@ class ConversationManager:
             return self.technical_questions[answered_count]
         
         return None
+    
+    def switch_conversation_language(self, new_language: str) -> bool:
+        """
+        Switch the conversation language and update context.
+        
+        Args:
+            new_language: New language code to switch to
+            
+        Returns:
+            True if switch was successful, False otherwise
+        """
+        try:
+            # Validate language is supported
+            if new_language not in self.language_manager.SUPPORTED_LANGUAGES:
+                return False
+            
+            # Update language
+            old_language = self.current_language
+            self.current_language = new_language
+            self.candidate_data["language"] = new_language
+            
+            # Update language preference
+            self.language_manager.update_language_preference(self.session_id, new_language)
+            
+            # Preserve conversation context across language switch
+            self.history = self.llm_router.preserve_context_across_languages(
+                self.history, new_language
+            )
+            
+            # Update conversation history in candidate data
+            self.candidate_data["conversation_history"] = self.history
+            
+            # Log language switch
+            if "language_switches" not in self.candidate_data:
+                self.candidate_data["language_switches"] = []
+            
+            self.candidate_data["language_switches"].append({
+                "from_language": old_language,
+                "to_language": new_language,
+                "timestamp": time.time(),
+                "stage": self.stage
+            })
+            
+            # Save updated data
+            self._save_session()
+            
+            return True
+            
+        except Exception as e:
+            # Log error and revert language
+            print(f"Error switching language: {e}")
+            self.current_language = old_language if 'old_language' in locals() else "en"
+            return False
+    
+    def _handle_language_error(self, error: Exception, fallback_language: str = "en") -> str:
+        """
+        Handle language-related errors gracefully.
+        
+        Args:
+            error: The exception that occurred
+            fallback_language: Language to fall back to
+            
+        Returns:
+            Error response in appropriate language
+        """
+        try:
+            # Try to get error response using LLM router's error handling
+            return self.llm_router.handle_translation_failure(
+                "I apologize for the technical difficulty. Let me try to help you.",
+                error,
+                fallback_language
+            )
+        except Exception as fallback_error:
+            # Ultimate fallback - hardcoded error messages
+            error_messages = {
+                "en": "I apologize for the technical difficulty. Please try again or continue in English.",
+                "es": "Me disculpo por la dificultad técnica. Por favor, inténtelo de nuevo o continúe en inglés.",
+                "fr": "Je m'excuse pour la difficulté technique. Veuillez réessayer ou continuer en anglais.",
+                "de": "Entschuldigung für die technischen Schwierigkeiten. Bitte versuchen Sie es erneut oder setzen Sie auf Englisch fort.",
+                "it": "Mi scuso per la difficoltà tecnica. Per favore riprova o continua in inglese.",
+                "pt": "Peço desculpas pela dificuldade técnica. Tente novamente ou continue em inglês.",
+                "hi": "तकनीकी कठिनाई के लिए मुझे खेद है। कृपया पुनः प्रयास करें या अंग्रेजी में जारी रखें।"
+            }
+            
+            return error_messages.get(self.current_language, error_messages["en"])
+    
+    def process_multilingual_message(self, message: str, detected_language: str) -> str:
+        """
+        Process a message with explicit language detection result.
+        
+        Args:
+            message: User message
+            detected_language: Pre-detected language code
+            
+        Returns:
+            Response message
+        """
+        # Update language if different from current
+        if detected_language != self.current_language:
+            self.switch_conversation_language(detected_language)
+        
+        # Process message normally
+        return self.process_message(message)
+    
+    def validate_language_specific_data(self, data: Dict, language: str) -> bool:
+        """
+        Validate data based on language-specific cultural norms.
+        
+        Args:
+            data: Data dictionary to validate
+            language: Language code for cultural context
+            
+        Returns:
+            True if data is valid, False otherwise
+        """
+        try:
+            # Validate name format
+            if "name" in data:
+                is_valid, _ = self.language_manager.validate_cultural_data_format(
+                    "name", data["name"], language
+                )
+                if not is_valid:
+                    return False
+            
+            # Validate phone format
+            if "phone" in data:
+                is_valid, _ = self.language_manager.validate_cultural_data_format(
+                    "phone", data["phone"], language
+                )
+                if not is_valid:
+                    return False
+            
+            return True
+            
+        except Exception:
+            return False
