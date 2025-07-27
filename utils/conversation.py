@@ -75,7 +75,7 @@ class ConversationManager:
         # Track sentiment analysis status
         self.sentiment_analysis_enabled = self.sentiment_analyzer.is_available()
         if not self.sentiment_analysis_enabled:
-            print("Sentiment analysis is not available. Using fallback mode.")
+            logger.info("Sentiment analysis is not available. Using fallback mode.")
         
         # Initialize user ID and language
         self.user_id = self.personalization_manager.get_user_id(self.session_id, self.candidate_data)
@@ -1301,7 +1301,7 @@ class ConversationManager:
             
         except Exception as e:
             # Log error and revert language
-            print(f"Error switching language: {e}")
+            logger.error(f"Error switching language: {e}")
             self.current_language = old_language if 'old_language' in locals() else "en"
             return False
     

@@ -1,8 +1,19 @@
 # 🎯 TalentScout Hiring Assistant
 
+[![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://python.org)
+[![Streamlit](https://img.shields.io/badge/Streamlit-1.32+-red.svg)](https://streamlit.io)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![AI Powered](https://img.shields.io/badge/AI-Powered-green.svg)](https://github.com/raazi29/Talentscout)
+
 > **AI-Powered Candidate Screening Chatbot for Technical Positions**
 
 An intelligent hiring assistant that conducts initial candidate interviews, gathers essential information, and generates relevant technical questions based on the candidate's tech stack.
+
+## 🎬 Live Demo
+
+🌐 **[Try TalentScout Live](https://talentscout-i0hd.onrender.com)** *(Add your Render URL here)*
+
+> *Experience the full interview process with multilingual support and real-time analytics*
 
 ## ✨ Key Features
 
@@ -23,7 +34,7 @@ An intelligent hiring assistant that conducts initial candidate interviews, gath
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/yourusername/talentscout.git
+git clone https://github.com/Raazi29/talentscout.git
 cd talentscout
 
 # 2. Install dependencies
@@ -108,9 +119,18 @@ talentscout/
 - **🎨 Modern UI/UX**: Professional dark theme with intuitive navigation
 - **⚡ Performance Optimization**: Caching and efficient LLM routing
 
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
 ## 📞 Support
 
 For questions or issues:
 - 📧 Email: support@talentscout.com
 - 📚 Documentation: See inline code comments and docstrings
+- 🐛 Issues: [GitHub Issues](https://github.com/raazi29/Talentscout/issues)
 

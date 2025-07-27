@@ -5,10 +5,15 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 load_dotenv()
 
-# API Keys
+# API Keys with validation
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+if not GROQ_API_KEY:
+    print("⚠️  Warning: GROQ_API_KEY not found. Please check your .env file.")
+
 # OpenRouter fallback configuration (for use only if Groq is unavailable)
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+if not OPENROUTER_API_KEY:
+    print("⚠️  Warning: OPENROUTER_API_KEY not found. Fallback may not work.")
 # List of best, latest, free OpenRouter models for 2025 (fallback order)
 OPENROUTER_MODELS_2025 = [
     "deepseek-ai/deepseek-llm-67b-chat",  # DeepSeek LLM 67B (very strong, free)
@@ -39,3 +44,5 @@ TECH_CATEGORIES = {
 # App settings
 APP_TITLE = "TalentScout Hiring Assistant"
 APP_DESCRIPTION = "AI-powered chatbot for initial candidate screening"
+APP_VERSION = "2.0.0"
+APP_AUTHOR = "AI/ML Intern Assignment"

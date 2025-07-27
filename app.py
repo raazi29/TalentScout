@@ -846,6 +846,11 @@ def display_enhanced_sidebar():
                 # Question limits info
                 import config
                 st.caption(f"Limit: {config.MIN_TECHNICAL_QUESTIONS}-{config.MAX_TECHNICAL_QUESTIONS} questions")
+                
+                # Completion rate
+                if total_questions > 0:
+                    completion_rate = (answered_questions / total_questions) * 100
+                    st.caption(f"Technical Assessment: {completion_rate:.0f}% complete")
             elif analytics['stage_name'] == 'technical_questions':
                 import config
                 st.markdown(f"**Questions:** Generating...")
@@ -974,11 +979,16 @@ def display_enhanced_chat():
         conversation_manager = st.session_state.conversation_manager
         
         # Process message with loading indicator
-        with st.spinner("🤖 TalentScout is analyzing your response..."):
-            response = conversation_manager.process_message(prompt)
-            
-            # Add bot response to chat
-            st.session_state.messages.append({"role": "assistant", "content": response})
+        with st.spinner("🤖 TalentScout is thinking..."):
+            try:
+                response = conversation_manager.process_message(prompt)
+                
+                # Add bot response to chat
+                st.session_state.messages.append({"role": "assistant", "content": response})
+            except Exception as e:
+                st.error("⚠️ Sorry, I'm having trouble processing your message. Please try again.")
+                # Don't add the failed response to messages
+                return
         
         # Force UI refresh
         st.rerun()
@@ -1164,14 +1174,28 @@ def main():
         # Footer
         st.markdown("---")
         st.markdown("""
-        <div style="text-align: center; color: #666; font-size: 0.9rem; padding: 1rem;">
-            🚀 TalentScout Hiring Assistant V2.0 
+        <div style="text-align: center; color: #94a3b8; font-size: 0.85rem; padding: 1rem; line-height: 1.6;">
+            <strong>🎯 TalentScout Hiring Assistant</strong><br>
         </div>
         """, unsafe_allow_html=True)
                 
     except Exception as e:
-        st.error(f"💥 Application Error: {str(e)}")
-        st.info("🔄 Please refresh the page to restart the application.")
+        st.error("🚨 **Application Error**")
+        st.markdown("""
+        **Something went wrong with the TalentScout Hiring Assistant.**
+        
+        **Possible solutions:**
+        - 🔄 **Refresh the page** and try again
+        - 🌐 **Check your internet connection**
+        - ⏰ **Wait a moment** and retry (API might be temporarily unavailable)
+        
+        If the problem persists, please contact support.
+        """)
+        
+        # Only show technical details in development
+        if st.checkbox("Show technical details", key="show_error_details"):
+            st.code(f"Error: {str(e)}")
+        
         st.stop()
 
 if __name__ == "__main__":
