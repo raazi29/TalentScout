@@ -837,6 +837,20 @@ def display_enhanced_sidebar():
             # Message count
             st.markdown(f"**Messages:** {analytics['conversation_length']}")
             
+            # Technical Questions Progress
+            if 'technical_questions' in cm.candidate_data:
+                total_questions = len(cm.candidate_data['technical_questions'])
+                answered_questions = len(cm.candidate_data.get('technical_answers', []))
+                st.markdown(f"**Questions:** {answered_questions}/{total_questions}")
+                
+                # Question limits info
+                import config
+                st.caption(f"Limit: {config.MIN_TECHNICAL_QUESTIONS}-{config.MAX_TECHNICAL_QUESTIONS} questions")
+            elif analytics['stage_name'] == 'technical_questions':
+                import config
+                st.markdown(f"**Questions:** Generating...")
+                st.caption(f"Limit: {config.MIN_TECHNICAL_QUESTIONS}-{config.MAX_TECHNICAL_QUESTIONS} questions")
+            
             st.markdown('</div>', unsafe_allow_html=True)
         
         # Quick Actions
@@ -1056,28 +1070,66 @@ def display_enhanced_analytics():
     stage_description = stage_descriptions.get(current_stage_key, 'Unknown stage')
     st.info(f"**Current Stage:** {stage_description}")
     
-    # Collected information
+    # Collected information with better organization
     if analytics.get('collected_fields'):
         st.markdown("### 📝 Collected Information")
-        collected_info = []
         candidate_data = cm.candidate_data
         
-        info_mapping = {
-            'name': ('👤 Name', candidate_data.get('name')),
-            'email': ('📧 Email', candidate_data.get('email')),
-            'phone': ('📱 Phone', candidate_data.get('phone')),
-            'years_experience': ('💼 Experience', f"{candidate_data.get('years_experience')} years" if candidate_data.get('years_experience') else None),
-            'position': ('🎯 Position', candidate_data.get('position')),
-            'location': ('📍 Location', candidate_data.get('location')),
-            'tech_stack': ('💻 Tech Stack', ', '.join(candidate_data.get('tech_stack', [])) if candidate_data.get('tech_stack') else None)
-        }
+        # Personal Information Section
+        personal_info = []
+        if 'name' in analytics['collected_fields'] and candidate_data.get('name'):
+            personal_info.append(('👤 **Name**', candidate_data.get('name')))
+        if 'email' in analytics['collected_fields'] and candidate_data.get('email'):
+            personal_info.append(('📧 **Email**', candidate_data.get('email')))
+        if 'phone' in analytics['collected_fields'] and candidate_data.get('phone'):
+            personal_info.append(('📱 **Phone**', candidate_data.get('phone')))
+        if 'location' in analytics['collected_fields'] and candidate_data.get('location'):
+            personal_info.append(('📍 **Location**', candidate_data.get('location')))
         
-        for field, (label, value) in info_mapping.items():
-            if field in analytics['collected_fields'] and value:
-                collected_info.append(f"**{label}:** {value}")
+        # Professional Information Section
+        professional_info = []
+        if 'years_experience' in analytics['collected_fields'] and candidate_data.get('years_experience'):
+            professional_info.append(('💼 **Experience**', f"{candidate_data.get('years_experience')} years"))
+        if 'position' in analytics['collected_fields'] and candidate_data.get('position'):
+            professional_info.append(('🎯 **Position**', candidate_data.get('position')))
         
-        if collected_info:
-            st.markdown('\n'.join(collected_info))
+        # Technical Information Section
+        technical_info = []
+        if 'tech_stack' in analytics['collected_fields'] and candidate_data.get('tech_stack'):
+            tech_stack = candidate_data.get('tech_stack', [])
+            if tech_stack:
+                technical_info.append(('💻 **Tech Stack**', ', '.join(tech_stack)))
+        
+        # Display sections with better formatting
+        if personal_info or professional_info or technical_info:
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                if personal_info:
+                    st.markdown("**👤 Personal Details**")
+                    for label, value in personal_info:
+                        st.markdown(f"{label}: {value}")
+                    
+                if professional_info:
+                    st.markdown("")  # Add spacing
+                    st.markdown("**💼 Professional Details**")
+                    for label, value in professional_info:
+                        st.markdown(f"{label}: {value}")
+            
+            with col2:
+                if technical_info:
+                    st.markdown("**💻 Technical Skills**")
+                    for label, value in technical_info:
+                        # Format tech stack as bullet points for better readability
+                        if label.startswith('💻'):
+                            tech_list = value.split(', ')
+                            st.markdown(f"{label}:")
+                            for tech in tech_list:
+                                st.markdown(f"• {tech}")
+                        else:
+                            st.markdown(f"{label}: {value}")
+        else:
+            st.info("No information collected yet. Start the interview to see candidate details here.")
 
 def main():
     """Enhanced main application function with modern UI."""
