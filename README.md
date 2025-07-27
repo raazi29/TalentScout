@@ -21,7 +21,7 @@ The assistant handles the following tasks:
 - **Flexible LLM Routing**: Utilizes multiple language models for different conversation aspects
 - **Data Persistence**: Securely stores candidate information for later review
 - **Fallback Mechanisms**: Handles unexpected inputs gracefully
-
+- **Sentiment Analysis**: Uses Hugging Face models
 ## Installation
 
 ### Prerequisites
