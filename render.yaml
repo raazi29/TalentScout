@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: talentscout-hiring-assistant
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: streamlit run app.py --server.port $PORT --server.address 0.0.0.0 --server.headless true
+    envVars:
+      - key: GROQ_API_KEY
+        sync: false
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: HUGGINGFACE_API_KEY
+        sync: false
+    healthCheckPath: /

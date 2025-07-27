@@ -1165,7 +1165,7 @@ def main():
         st.markdown("---")
         st.markdown("""
         <div style="text-align: center; color: #666; font-size: 0.9rem; padding: 1rem;">
-            🚀 TalentScout Hiring Assistant v2.0 | Built with Streamlit & Advanced AI
+            🚀 TalentScout Hiring Assistant v2.0 
         </div>
         """, unsafe_allow_html=True)
                 
