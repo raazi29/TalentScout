@@ -1,0 +1,22 @@
+{
+  "conversation_history": [
+    {
+      "role": "user",
+      "content": "Hello"
+    },
+    {
+      "role": "assistant",
+      "content": "Nice to meet you! I'm excited to learn more about you and see if we can find a great fit for you.\n\nTo get started, could you please tell me your full name? I want to make sure I get it right and address you correctly throughout our conversation."
+    },
+    {
+      "role": "user",
+      "content": "hi"
+    },
+    {
+      "role": "assistant",
+      "content": "Hi there! It's great to be chatting with you. I'm TalentScout's AI Hiring Assistant, and I'm excited to learn more about you and see if we can find a great fit for you.\n\nI noticed you introduced yourself as \"hi\" earlier. Could you please share your full name with me? It'll help me address you properly and keep our conversation more personalized.\n\nAlso, could you please share your email address and phone number with me? This will enable us to stay in touch and discuss potential opportunities that might interest you.\n\nLooking forward to hearing back from you!"
+    }
+  ],
+  "timestamp": "2025-07-27T07:30:41.632978",
+  "name": "hi"
+}
