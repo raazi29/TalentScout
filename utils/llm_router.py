@@ -19,18 +19,18 @@ class LLMRouter:
     def __init__(self):
         """Initialize the LLM router with Groq client and OpenRouter fallback."""
         self.groq_client = groq.Groq(api_key=config.GROQ_API_KEY) if config.GROQ_API_KEY else None
-        # OpenRouter fallback client (only initialized if API key is present)
-        self.openrouter_client = None
+        
+        # Initialize OpenRouter client if API key is available
         if config.OPENROUTER_API_KEY:
-            try:
-                import openai
-                self.openrouter_client = openai.OpenAI(
-                    api_key=config.OPENROUTER_API_KEY,
-                    base_url="https://openrouter.ai/api/v1"
-                )
-            except Exception as e:
-                logger.warning(f"Failed to initialize OpenRouter client: {e}")
-                self.openrouter_client = None
+            self.openrouter_client = openai.OpenAI(
+                base_url="https://openrouter.ai/api/v1",
+                api_key=config.OPENROUTER_API_KEY,
+            )
+            logger.info("OpenRouter fallback enabled")
+        else:
+            self.openrouter_client = None
+            logger.info("OpenRouter API key not provided - fallback disabled")
+            
         if not self.groq_client and not self.openrouter_client:
             logger.warning("No API keys provided. LLM functionality will be limited.")
 
@@ -56,14 +56,15 @@ class LLMRouter:
         if not self.openrouter_client:
             logger.warning("OpenRouter API key not provided or client not initialized.")
             return None
+            
         for model in config.OPENROUTER_MODELS_2025:
             try:
+                logger.info(f"Trying OpenRouter model: {model}")
                 response = self.openrouter_client.chat.completions.create(
                     model=model,
                     messages=[{"role": "user", "content": prompt}],
                     temperature=temperature,
-                    max_tokens=max_tokens,
-                    timeout=2.0
+                    max_tokens=max_tokens
                 )
                 if response.choices and response.choices[0].message.content:
                     logger.info(f"OpenRouter fallback succeeded with model: {model}")
@@ -71,6 +72,7 @@ class LLMRouter:
             except Exception as e:
                 logger.warning(f"OpenRouter model {model} failed: {e}")
                 continue
+                
         logger.error("All OpenRouter fallback models failed.")
         return None
 
@@ -78,13 +80,22 @@ class LLMRouter:
         """
         Get a response from Groq LLM (llama3-8b-8192). If unavailable, fallback to OpenRouter best 2025 models. If all fail, return a user-friendly fallback.
         """
+        # Try Groq first
+        logger.info("Attempting Groq API call...")
         response = self._call_groq(prompt, temperature, max_tokens)
         if response:
+            logger.info("Groq API call successful")
             return response
+            
         # Fallback to OpenRouter best 2025 models
+        logger.info("Groq failed, trying OpenRouter fallback...")
         response = self._call_openrouter_fallback(prompt, temperature, max_tokens)
         if response:
+            logger.info("OpenRouter fallback successful")
             return response
+            
+        # Final fallback
+        logger.warning("All API calls failed, using static fallback")
         return self._get_fallback_response(use_case)
 
     def _get_fallback_response(self, use_case: str) -> str:

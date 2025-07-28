@@ -1,0 +1,1 @@
+"""TalentScout Hiring Assistant - AI-powered candidate screening."""

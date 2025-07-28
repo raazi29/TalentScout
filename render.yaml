@@ -7,7 +7,8 @@ services:
     buildCommand: |
       pip install --upgrade pip
       pip install -r requirements.txt
-    startCommand: streamlit run app.py --server.port $PORT --server.address 0.0.0.0 --server.headless true --server.enableCORS false --server.enableXsrfProtection false
+      python health_check.py
+    startCommand: python start.py
     envVars:
       - key: GROQ_API_KEY
         sync: false
@@ -17,4 +18,5 @@ services:
         sync: false
       - key: PYTHONUNBUFFERED
         value: "1"
-    healthCheckPath: /
+      - key: PYTHONPATH
+        value: "."

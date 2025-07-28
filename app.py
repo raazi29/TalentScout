@@ -5,8 +5,19 @@ A comprehensive AI-powered chatbot for initial candidate screening with advanced
 """
 import uuid
 import streamlit as st
-from utils.conversation import ConversationManager
-import config
+import sys
+import os
+
+# Add current directory to Python path for imports
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+try:
+    from utils.conversation import ConversationManager
+    import config
+except ImportError as e:
+    st.error(f"Import Error: {e}")
+    st.error("Please ensure all required files are present and properly configured.")
+    st.stop()
 
 # Optional imports for analytics (will gracefully degrade if not available)
 try:
@@ -415,24 +426,38 @@ st.markdown("""
 
 def init_session():
     """Initialize session state variables."""
-    if "session_id" not in st.session_state:
-        st.session_state.session_id = str(uuid.uuid4())
-    
-    if "conversation_manager" not in st.session_state:
-        st.session_state.conversation_manager = ConversationManager(st.session_state.session_id)
-    
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
-        # Add initial greeting
-        conversation_manager = st.session_state.conversation_manager
-        initial_message = conversation_manager.process_message("Hello")
-        st.session_state.messages.append({"role": "assistant", "content": initial_message})
-    
-    if "show_analytics" not in st.session_state:
-        st.session_state.show_analytics = False
-    
-    if "selected_language" not in st.session_state:
-        st.session_state.selected_language = "en"
+    try:
+        if "session_id" not in st.session_state:
+            st.session_state.session_id = str(uuid.uuid4())
+        
+        if "conversation_manager" not in st.session_state:
+            st.session_state.conversation_manager = ConversationManager(st.session_state.session_id)
+        
+        if "messages" not in st.session_state:
+            st.session_state.messages = []
+            # Add initial greeting
+            conversation_manager = st.session_state.conversation_manager
+            initial_message = conversation_manager.process_message("Hello")
+            st.session_state.messages.append({"role": "assistant", "content": initial_message})
+        
+        if "show_analytics" not in st.session_state:
+            st.session_state.show_analytics = False
+        
+        if "selected_language" not in st.session_state:
+            st.session_state.selected_language = "en"
+            
+    except Exception as e:
+        st.error(f"🚨 Application Error: {str(e)}")
+        st.error("Something went wrong with the TalentScout Hiring Assistant.")
+        st.markdown("""
+        **Possible solutions:**
+        - 🔄 Refresh the page and try again
+        - 🌐 Check your internet connection  
+        - ⏰ Wait a moment and retry (API might be temporarily unavailable)
+        
+        If the problem persists, please contact support.
+        """)
+        st.stop()
 
 def display_language_selector():
     """Display language selection interface."""
