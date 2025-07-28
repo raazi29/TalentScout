@@ -706,7 +706,7 @@ def display_advanced_analytics():
         st.info("Analytics temporarily unavailable.")
 
 def display_chat():
-    """Display enhanced chat interface."""
+    """Display basic chat interface (legacy function)."""
     # Display chat messages with better formatting
     for message in st.session_state.messages:
         if message["role"] == "user":
@@ -716,30 +716,8 @@ def display_chat():
             with st.chat_message("assistant", avatar="🤖"):
                 st.write(message["content"])
     
-    # Enhanced chat input with language indicator
-    current_lang = st.session_state.selected_language
-    from utils.language_manager import LanguageManager
-    lang_manager = LanguageManager()
-    lang_info = lang_manager.get_language_info(current_lang)
-    lang_name = lang_info['native_name'] if lang_info else current_lang.upper()
-    
-    placeholder_text = f"Type your message in {lang_name}..."
-    if prompt := st.chat_input(placeholder_text):
-        # Add user message to chat
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        
-        # Get conversation manager
-        conversation_manager = st.session_state.conversation_manager
-        
-        # Process message and get response
-        with st.spinner("🤖 TalentScout is thinking..."):
-            response = conversation_manager.process_message(prompt)
-            
-            # Add bot response to chat
-            st.session_state.messages.append({"role": "assistant", "content": response})
-        
-        # Force UI refresh
-        st.rerun()
+    # Chat input moved to separate function to avoid container issues
+    display_chat_input()
 
 def display_sidebar():
     """Display enhanced sidebar with all new features and modern UI."""
@@ -996,8 +974,8 @@ def display_interview_status():
     # Removed progress bar and stage indicator from main page
     pass
 
-def display_enhanced_chat():
-    """Display enhanced chat interface with better styling."""
+def display_enhanced_chat_messages():
+    """Display enhanced chat messages without input (for use in columns)."""
     st.markdown('<div class="chat-container">', unsafe_allow_html=True)
     
     # Display interview status
@@ -1012,6 +990,10 @@ def display_enhanced_chat():
             with st.chat_message("assistant", avatar="🤖"):
                 st.write(message["content"])
     
+    st.markdown('</div>', unsafe_allow_html=True)
+
+def display_chat_input():
+    """Display chat input outside of columns (required by Streamlit)."""
     # Enhanced chat input with language indicator
     current_lang = st.session_state.selected_language
     from utils.language_manager import LanguageManager
@@ -1042,8 +1024,6 @@ def display_enhanced_chat():
         
         # Force UI refresh
         st.rerun()
-    
-    st.markdown('</div>', unsafe_allow_html=True)
 
 def display_quick_test_inputs():
     """Display quick test inputs for easy testing."""
@@ -1204,9 +1184,9 @@ def main():
         col1, col2 = st.columns([2, 1])
         
         with col1:
-            # Enhanced chat interface
+            # Enhanced chat interface (without chat input)
             try:
-                display_enhanced_chat()
+                display_enhanced_chat_messages()
             except Exception as e:
                 st.error(f"💥 Chat Error: {str(e)}")
                 st.info("🔄 Please refresh the page to continue.")
@@ -1220,6 +1200,9 @@ def main():
             if st.session_state.get('show_analytics', False):
                 with st.expander("📊 Analytics", expanded=True):
                     display_enhanced_analytics()
+        
+        # Chat input OUTSIDE of columns (this is required by Streamlit)
+        display_chat_input()
         
         # Footer
         st.markdown("---")
