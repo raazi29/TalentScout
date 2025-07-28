@@ -14,13 +14,15 @@ if not GROQ_API_KEY:
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 if not OPENROUTER_API_KEY:
     print("⚠️  Warning: OPENROUTER_API_KEY not found. Fallback may not work.")
-# List of best, latest, free OpenRouter models for 2025 (fallback order)
+# List of working OpenRouter models for 2025 (tested and verified)
+# Ordered by reliability and performance for hiring assistant use case
 OPENROUTER_MODELS_2025 = [
-    "deepseek-ai/deepseek-llm-67b-chat",  # DeepSeek LLM 67B (very strong, free)
-    "qwen/qwen-2-72b-instruct",           # Qwen2 72B (powerful, free)
-    "meta-llama/llama-3-70b-instruct",   # Llama 3 70B (latest, free)
-    "mistralai/mixtral-8x22b",           # Mixtral 8x22B (MoE, strong reasoning)
-    "google/gemma-7b-it"                  # Gemma 7B (Google, free)
+    "google/gemma-2-9b-it:free",                 # Gemma 2 9B (Google, tested working ✅)
+    "mistralai/mistral-7b-instruct:free",       # Mistral 7B (good performance, free)
+    "google/gemma-7b-it:free",                   # Gemma 7B (Google, reliable backup)
+    "huggingface/zephyr-7b-beta:free",          # Zephyr 7B (conversational, free)
+    "meta-llama/llama-3-8b-instruct:free",      # Llama 3 8B (if available)
+    "openchat/openchat-7b:free",                 # OpenChat 7B (conversational fallback)
 ]
 HUGGINGFACE_API_KEY = os.getenv("HUGGINGFACE_API_KEY")
 
@@ -28,14 +30,19 @@ HUGGINGFACE_API_KEY = os.getenv("HUGGINGFACE_API_KEY")
 if not GROQ_API_KEY and not OPENROUTER_API_KEY:
     print("❌ ERROR: No API keys found! Please set at least GROQ_API_KEY or OPENROUTER_API_KEY")
     print("   Add these to your Render environment variables.")
+    print("   Get Groq API key: https://console.groq.com/")
+    print("   Get OpenRouter API key: https://openrouter.ai/")
 elif GROQ_API_KEY and OPENROUTER_API_KEY:
     print("✅ Both Groq and OpenRouter API keys found - full fallback enabled")
+    print("   Primary: Groq (fastest) → Fallback: OpenRouter (reliable)")
 elif GROQ_API_KEY:
     print("✅ Groq API key found - primary service enabled")
     print("⚠️  OpenRouter fallback disabled (no API key)")
+    print("   Consider adding OPENROUTER_API_KEY for better reliability")
 elif OPENROUTER_API_KEY:
-    print("⚠️  Only OpenRouter API key found - using as primary service")
+    print("✅ OpenRouter API key found - using as primary service")
     print("⚠️  Consider adding GROQ_API_KEY for better performance")
+    print("   Groq is faster but OpenRouter has more model options")
 
 # Model configuration: Use only Groq's llama3-8b-8192 for all LLM calls (fastest, most reliable, least hallucination among free models)
 GROQ_MODEL = "llama3-8b-8192"

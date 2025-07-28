@@ -18,15 +18,28 @@ class LLMRouter:
     """Routes LLM requests to Groq (primary) and OpenRouter (fallback, best 2025 models)."""
     def __init__(self):
         """Initialize the LLM router with Groq client and OpenRouter fallback."""
-        self.groq_client = groq.Groq(api_key=config.GROQ_API_KEY) if config.GROQ_API_KEY else None
+        # Initialize Groq client with error handling for version compatibility
+        if config.GROQ_API_KEY:
+            try:
+                self.groq_client = groq.Groq(api_key=config.GROQ_API_KEY)
+                logger.info("Groq client initialized successfully")
+            except Exception as e:
+                logger.error(f"Failed to initialize Groq client: {e}")
+                self.groq_client = None
+        else:
+            self.groq_client = None
         
         # Initialize OpenRouter client if API key is available
         if config.OPENROUTER_API_KEY:
-            self.openrouter_client = openai.OpenAI(
-                base_url="https://openrouter.ai/api/v1",
-                api_key=config.OPENROUTER_API_KEY,
-            )
-            logger.info("OpenRouter fallback enabled")
+            try:
+                self.openrouter_client = openai.OpenAI(
+                    base_url="https://openrouter.ai/api/v1",
+                    api_key=config.OPENROUTER_API_KEY,
+                )
+                logger.info("OpenRouter fallback enabled")
+            except Exception as e:
+                logger.error(f"Failed to initialize OpenRouter client: {e}")
+                self.openrouter_client = None
         else:
             self.openrouter_client = None
             logger.info("OpenRouter API key not provided - fallback disabled")
@@ -37,7 +50,7 @@ class LLMRouter:
     def _call_groq(self, prompt: str, temperature: float = 0.7, max_tokens: int = 500) -> Optional[str]:
         """Call the Groq API and return the response using the best free model."""
         if not self.groq_client:
-            logger.warning("Groq API key not provided.")
+            logger.warning("Groq API key not provided or client not initialized.")
             return None
         try:
             response = self.groq_client.chat.completions.create(
@@ -46,9 +59,22 @@ class LLMRouter:
                 temperature=temperature,
                 max_tokens=max_tokens
             )
-            return response.choices[0].message.content
+            if response.choices and response.choices[0].message.content:
+                return response.choices[0].message.content
+            else:
+                logger.warning("Groq API returned empty response")
+                return None
         except Exception as e:
             logger.error(f"Error calling Groq API: {e}")
+            # If it's a client initialization error, try to reinitialize
+            if "proxies" in str(e) or "unexpected keyword argument" in str(e):
+                logger.info("Attempting to reinitialize Groq client...")
+                try:
+                    self.groq_client = groq.Groq(api_key=config.GROQ_API_KEY)
+                    logger.info("Groq client reinitialized successfully")
+                except Exception as reinit_error:
+                    logger.error(f"Failed to reinitialize Groq client: {reinit_error}")
+                    self.groq_client = None
             return None
 
     def _call_openrouter_fallback(self, prompt: str, temperature: float = 0.7, max_tokens: int = 500) -> Optional[str]:
@@ -57,45 +83,61 @@ class LLMRouter:
             logger.warning("OpenRouter API key not provided or client not initialized.")
             return None
             
-        for model in config.OPENROUTER_MODELS_2025:
+        for i, model in enumerate(config.OPENROUTER_MODELS_2025):
             try:
-                logger.info(f"Trying OpenRouter model: {model}")
+                logger.info(f"Trying OpenRouter model {i+1}/{len(config.OPENROUTER_MODELS_2025)}: {model}")
                 response = self.openrouter_client.chat.completions.create(
                     model=model,
                     messages=[{"role": "user", "content": prompt}],
                     temperature=temperature,
-                    max_tokens=max_tokens
+                    max_tokens=max_tokens,
+                    timeout=30  # Add timeout to prevent hanging
                 )
                 if response.choices and response.choices[0].message.content:
-                    logger.info(f"OpenRouter fallback succeeded with model: {model}")
+                    logger.info(f"✅ OpenRouter fallback succeeded with model: {model}")
                     return response.choices[0].message.content
+                else:
+                    logger.warning(f"OpenRouter model {model} returned empty response")
             except Exception as e:
-                logger.warning(f"OpenRouter model {model} failed: {e}")
+                logger.warning(f"❌ OpenRouter model {model} failed: {e}")
+                # Continue to next model
                 continue
                 
-        logger.error("All OpenRouter fallback models failed.")
+        logger.error("❌ All OpenRouter fallback models failed.")
         return None
 
     def get_response(self, prompt: str, use_case: str = "general", temperature: float = 0.7, max_tokens: int = 500) -> str:
         """
         Get a response from Groq LLM (llama3-8b-8192). If unavailable, fallback to OpenRouter best 2025 models. If all fail, return a user-friendly fallback.
         """
-        # Try Groq first
-        logger.info("Attempting Groq API call...")
-        response = self._call_groq(prompt, temperature, max_tokens)
-        if response:
-            logger.info("Groq API call successful")
-            return response
-            
-        # Fallback to OpenRouter best 2025 models
-        logger.info("Groq failed, trying OpenRouter fallback...")
-        response = self._call_openrouter_fallback(prompt, temperature, max_tokens)
-        if response:
-            logger.info("OpenRouter fallback successful")
-            return response
-            
-        # Final fallback
-        logger.warning("All API calls failed, using static fallback")
+        # Determine which service to try first based on availability
+        primary_service = "groq" if self.groq_client else "openrouter" if self.openrouter_client else None
+        
+        if primary_service == "groq":
+            # Try Groq first
+            logger.info("🚀 Attempting Groq API call...")
+            response = self._call_groq(prompt, temperature, max_tokens)
+            if response:
+                logger.info("✅ Groq API call successful")
+                return response
+                
+            # Fallback to OpenRouter
+            logger.info("⚠️ Groq failed, trying OpenRouter fallback...")
+            response = self._call_openrouter_fallback(prompt, temperature, max_tokens)
+            if response:
+                logger.info("✅ OpenRouter fallback successful")
+                return response
+                
+        elif primary_service == "openrouter":
+            # Use OpenRouter as primary if Groq is not available
+            logger.info("🚀 Using OpenRouter as primary service...")
+            response = self._call_openrouter_fallback(prompt, temperature, max_tokens)
+            if response:
+                logger.info("✅ OpenRouter primary call successful")
+                return response
+        
+        # Final fallback to static responses
+        logger.warning("❌ All API services failed, using static fallback")
         return self._get_fallback_response(use_case)
 
     def _get_fallback_response(self, use_case: str) -> str:
